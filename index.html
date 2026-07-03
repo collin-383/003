@@ -1316,22 +1316,36 @@
   // mitten im Satz unterbrochen.
   const COMMAND_SILENCE_MS = 1500;
 
+  // Führt zwei Textschnipsel so zusammen, dass sich überlappende Wortfolgen am
+  // Übergang NICHT verdoppelt werden — egal ob der neue Schnipsel den alten komplett
+  // enthält (kumulatives Wachstum) oder nur teilweise überlappt (z. B. weil die
+  // Erkennung mitten im Satz kurz neu gestartet ist und die letzten Worte nochmal hört).
+  function mergeSpokenText(buf, chunk){
+    if(!buf) return chunk;
+    if(!chunk) return buf;
+    const bufLower = buf.toLowerCase();
+    const chunkLower = chunk.toLowerCase();
+
+    if(chunkLower.startsWith(bufLower)) return chunk;
+    if(bufLower.endsWith(chunkLower) || bufLower.includes(chunkLower)) return buf;
+
+    const bufWords = buf.split(/\s+/);
+    const chunkWords = chunk.split(/\s+/);
+    const maxOverlap = Math.min(bufWords.length, chunkWords.length);
+    for(let len = maxOverlap; len > 0; len--){
+      const bufSuffix = bufWords.slice(-len).join(' ').toLowerCase();
+      const chunkPrefix = chunkWords.slice(0, len).join(' ').toLowerCase();
+      if(bufSuffix === chunkPrefix){
+        return bufWords.slice(0, -len).concat(chunkWords).join(' ').trim();
+      }
+    }
+    return (buf + ' ' + chunk).trim();
+  }
+
   function feedCommandText(chunk){
     chunk = chunk.trim();
     if(!chunk){ resetCommandTimer(); return; }
-    const buf = state.commandBuffer;
-    const bufLower = buf.toLowerCase();
-    const chunkLower = chunk.toLowerCase();
-    if(!buf){
-      state.commandBuffer = chunk;
-    } else if(chunkLower.startsWith(bufLower)){
-      // Neuer Chunk enthält den bisherigen Puffer bereits komplett (wächst kumulativ) -> ersetzen
-      state.commandBuffer = chunk;
-    } else if(bufLower.endsWith(chunkLower) || bufLower.includes(chunkLower)){
-      // Chunk steckt schon im Puffer -> Duplikat ignorieren
-    } else {
-      state.commandBuffer = (buf + ' ' + chunk).trim();
-    }
+    state.commandBuffer = mergeSpokenText(state.commandBuffer, chunk);
     resetCommandTimer();
   }
 
