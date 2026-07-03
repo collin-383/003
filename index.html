@@ -1484,8 +1484,19 @@
 
   // --- PWA: als installierbare App einrichten ---
   if('serviceWorker' in navigator){
+    let refreshing = false;
+    // Sobald eine neue Version des Service Workers übernimmt, die Seite automatisch
+    // einmal neu laden — verhindert, dass Nutzer dauerhaft an einer veralteten,
+    // gecachten Version hängen bleiben.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(() => {});
     });
   }
 
