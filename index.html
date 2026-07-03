@@ -484,7 +484,7 @@
     </div>
 
     <div class="hint" style="margin-bottom:16px;">
-      Hinweis: Aus Sicherheits- und Datenschutzgründen kann kein Browser dauerhaft im Hintergrund lauschen, wenn Tab/App komplett geschlossen sind — nur solange diese Seite offen ist (auch minimiert/im Hintergrundtab). Für echtes 24/7-Hintergrundlauschen wäre eine installierte Geräte-App mit Systemberechtigung nötig.
+      Hinweis: Aus Sicherheits- und Datenschutzgründen kann kein Browser dauerhaft im Hintergrund lauschen, wenn Tab/App komplett geschlossen sind — nur solange diese Seite offen ist (auch minimiert/im Hintergrundtab). Für echtes 24/7-Hintergrundlauschen wäre eine installierte Geräte-App mit Systemberechtigung nötig. Solange „Aktivieren“ eingeschaltet ist, hält die App zusätzlich den Bildschirm wach (Wake Lock) und startet die Erkennung automatisch neu, falls sie im Hintergrund einmal lautlos aussetzt — das erhöht spürbar die Zuverlässigkeit, solange die App offen bleibt.
     </div>
 
     <div class="hint" style="margin-bottom:18px;">
@@ -520,7 +520,8 @@
     defaultSearchEngine: 'google',
     userName: null,
     lastTopic: '',
-    awaitingMood: false
+    awaitingMood: false,
+    recognitionActive: false
   };
 
   const el = {
@@ -1205,6 +1206,8 @@
     r.continuous = true;
     r.interimResults = true;
 
+    r.onstart = () => { state.recognitionActive = true; };
+
     r.onresult = (event) => {
       let finalText = '';
       let interim = '';
@@ -1254,10 +1257,11 @@
     };
 
     r.onend = () => {
+      state.recognitionActive = false;
       if(state.armed && !state.speaking){
         try{ r.start(); }catch(e){
-          // Neustart nicht möglich (z. B. Berechtigung inzwischen entzogen) -> ehrlich deaktivieren
-          disarmAssistant();
+          // Sofortiger Neustart nicht möglich -> der Watchdog unten versucht es
+          // in kurzen Abständen weiter, bevor endgültig deaktiviert wird.
         }
       }
     };
@@ -1334,6 +1338,8 @@
     el.toggleBtn.textContent = 'Deaktivieren';
     el.toggleBtn.classList.remove('primary');
     startRecognition();
+    requestWakeLock();
+    startWatchdog();
   }
 
   function disarmAssistant(){
@@ -1346,7 +1352,48 @@
     el.transcript.textContent = '';
     if(recognition){ try{ recognition.stop(); }catch(e){} }
     if(synth) synth.cancel();
+    releaseWakeLock();
+    stopWatchdog();
     setVisualState('off');
+  }
+
+  // --- Bildschirm wach halten, solange aktiv gelauscht wird ---
+  // (verhindert, dass das Gerät den Bildschirm sperrt und dabei die Erkennung killt —
+  //  funktioniert NUR solange die Seite offen/im Vordergrund ist, nicht bei geschlossener App)
+  let wakeLock = null;
+  async function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }catch(e){ /* z. B. Tab nicht sichtbar -> ignorieren, wird bei visibilitychange erneut versucht */ }
+  }
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && state.armed){
+      if(!wakeLock) requestWakeLock();
+      // Nach Rückkehr aus dem Hintergrund sicherstellen, dass die Erkennung wirklich noch läuft
+      if(!state.recognitionActive && !state.speaking){
+        try{ recognition && recognition.start(); }catch(e){}
+      }
+    }
+  });
+
+  // --- Watchdog: prüft regelmäßig, ob die Erkennung lautlos gestorben ist
+  // (bekanntes Verhalten mancher mobiler Browser im Hintergrund) und startet sie neu.
+  let watchdogTimer = null;
+  function startWatchdog(){
+    stopWatchdog();
+    watchdogTimer = setInterval(() => {
+      if(state.armed && !state.speaking && !state.recognitionActive){
+        try{ recognition && recognition.start(); }catch(e){}
+      }
+    }, 4000);
+  }
+  function stopWatchdog(){
+    if(watchdogTimer){ clearInterval(watchdogTimer); watchdogTimer = null; }
   }
 
   el.toggleBtn.addEventListener('click', () => {
