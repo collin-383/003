@@ -1025,6 +1025,10 @@
   // --- Befehle: einfache, erweiterbare Befehlsregistrierung ---
   const commands = [
     {
+      test: t => /(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s/.test(t),
+      run: (t) => cityTime(t)
+    },
+    {
       test: t => /wie spät|uhrzeit/.test(t),
       run: () => {
         const now = new Date();
@@ -1036,21 +1040,6 @@
       run: () => {
         const now = new Date();
         speak("Heute ist " + now.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + ".");
-      }
-    },
-    {
-      test: t => /^(rechne|berechne)\s/.test(t) || /\s(plus|minus|mal|geteilt durch)\s/.test(t),
-      run: (t) => {
-        try{
-          let expr = t.replace(/^(rechne|berechne)\s/, '')
-            .replace(/plus/g,'+').replace(/minus/g,'-')
-            .replace(/mal/g,'*').replace(/geteilt durch/g,'/');
-          expr = expr.replace(/[^0-9+\-*/.() ]/g, '');
-          const result = Function('"use strict";return (' + expr + ')')();
-          speak("Das Ergebnis ist " + result + ".");
-        }catch(e){
-          speak("Das konnte ich nicht berechnen.");
-        }
       }
     },
     { test: t => /wetter/.test(t), run: () => fetchWeather() },
@@ -1079,10 +1068,6 @@
       run: (t) => fetchWikipedia(t.replace(/^(wer ist|was weißt du über|erzähl mir etwas über)\s/,'').trim())
     },
     {
-      test: t => /^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s/.test(t),
-      run: (t) => answerQuery(t)
-    },
-    {
       test: t => /^(öffne|starte)\s+(die\s+app\s+|app\s+)?(whatsapp|spotify|instagram|telegram|tiktok|google maps|outlook)/.test(t),
       run: (t) => openApp(t)
     },
@@ -1105,12 +1090,11 @@
     { test: t => /systemdiagnose|system.?check|diagnose/.test(t), run: () => systemDiagnose() },
     { test: t => /motivier|motivation|pump mich auf/.test(t), run: () => speak(motivationQuotes[Math.floor(Math.random()*motivationQuotes.length)]) },
     { test: t => /fakt|wusstest du/.test(t), run: () => speak(funFacts[Math.floor(Math.random()*funFacts.length)]) },
-    { test: t => /(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s/.test(t), run: (t) => cityTime(t) },
     { test: t => /(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)\s*.*(in|nach|zu)\s*(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)/.test(t), run: (t) => convertUnits(t) },
     { test: t => /zufallszahl|zufällige zahl/.test(t), run: (t) => randomNumberCmd(t) },
     { test: t => /passwort/.test(t), run: (t) => generatePassword(t) },
     { test: t => /trinkgeld/.test(t), run: (t) => tipCalculator(t) },
-    { test: t => /wie alt (wäre ich|bin ich)|(mein )?alter berechne/.test(t), run: (t) => ageOrDateDiff(t) },
+    { test: t => /wie alt (wäre ich|bin ich)|(mein )?alter berechne|berechne (mein )?alter/.test(t), run: (t) => ageOrDateDiff(t) },
     { test: t => /wie viele tage (sind es )?bis|tage bis zum/.test(t), run: (t) => ageOrDateDiff(t) },
     { test: t => /stoppuhr\s*(starte|start)|starte\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStart() },
     { test: t => /stoppuhr\s*(stoppe|stopp)|stoppe\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStop() },
@@ -1119,6 +1103,28 @@
     { test: t => /fokus.?modus|pomodoro/.test(t), run: (t) => startFocusMode(t) },
     { test: t => /hell(en|er)?\s*modus/.test(t), run: () => toggleTheme(true) },
     { test: t => /dunkl(en|er)?\s*modus/.test(t), run: () => toggleTheme(false) },
+    {
+      // Taschenrechner bewusst erst hier, NACH allen spezifischeren Zahlenbefehlen (Trinkgeld,
+      // Alter, Umrechnung usw.) platziert — sonst würde er z. B. "Berechne Trinkgeld für ..."
+      // fälschlich für sich beanspruchen, nur weil der Satz mit "Berechne" beginnt.
+      test: t => /^(rechne|berechne)\s/.test(t) || /\s(plus|minus|mal|geteilt durch)\s/.test(t),
+      run: (t) => {
+        try{
+          let expr = t.replace(/^(rechne|berechne)\s/, '')
+            .replace(/plus/g,'+').replace(/minus/g,'-')
+            .replace(/mal/g,'*').replace(/geteilt durch/g,'/');
+          expr = expr.replace(/[^0-9+\-*/.() ]/g, '');
+          const result = Function('"use strict";return (' + expr + ')')();
+          speak("Das Ergebnis ist " + result + ".");
+        }catch(e){
+          speak("Das konnte ich nicht berechnen.");
+        }
+      }
+    },
+    {
+      test: t => /^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s/.test(t),
+      run: (t) => answerQuery(t)
+    },
     {
       test: t => /formell(en|er)?\s*modus\s*(an|ein)/.test(t),
       run: () => { state.formal = true; el.formalMode.checked = true; speak("Verstanden, Chef. Ich schalte in den formellen Modus."); }
@@ -1236,11 +1242,23 @@
     r.onerror = (e) => {
       if(e.error === 'no-speech' || e.error === 'aborted') return;
       console.warn('Speech recognition error:', e.error);
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        // Mikrofonzugriff wurde verweigert/blockiert (z. B. weil ohne Nutzer-Tipp gestartet,
+        // oder die Berechtigung wurde nie erteilt) -> Zustand ehrlich zurücksetzen
+        disarmAssistant();
+        el.stateLabel.textContent = 'Mikrofonzugriff wurde nicht erlaubt. Bitte in den Website-Einstellungen deines Browsers das Mikrofon für diese Seite freigeben und erneut auf „Aktivieren“ tippen.';
+      } else if(e.error === 'audio-capture'){
+        disarmAssistant();
+        el.stateLabel.textContent = 'Es wurde kein Mikrofon gefunden.';
+      }
     };
 
     r.onend = () => {
       if(state.armed && !state.speaking){
-        try{ r.start(); }catch(e){}
+        try{ r.start(); }catch(e){
+          // Neustart nicht möglich (z. B. Berechtigung inzwischen entzogen) -> ehrlich deaktivieren
+          disarmAssistant();
+        }
       }
     };
 
@@ -1250,7 +1268,13 @@
   function startRecognition(){
     if(!recognition) recognition = buildRecognition();
     if(!recognition) return;
-    try{ recognition.start(); }catch(e){}
+    try{
+      recognition.start();
+    }catch(e){
+      // Start fehlgeschlagen (z. B. keine Nutzer-Geste, Berechtigung fehlt) -> Zustand nicht verfälschen
+      disarmAssistant();
+      return;
+    }
     setVisualState(state.listeningCommand ? 'listening' : 'armed');
   }
 
@@ -1419,12 +1443,11 @@
   });
 
   // Wenn die App bereits installiert im eigenen Fenster läuft (statt im Browser-Tab),
-  // direkt beim Öffnen aktivieren, damit sofort weiter zugehört wird.
+  // NICHT automatisch aktivieren — Mikrofonzugriff braucht immer eine echte Nutzer-Geste,
+  // sonst wird er vom Browser stillschweigend blockiert. Stattdessen kurz darauf hinweisen.
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
   if(isStandalone && supported){
-    window.addEventListener('load', () => {
-      setTimeout(() => { armAssistant(); }, 600);
-    });
+    el.stateLabel.innerHTML = 'Tippe auf „<b>Aktivieren</b>“, um sofort weiterzuhören.';
   }
 
   updateWakeWordLabel();
