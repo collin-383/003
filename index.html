@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PROJEKT 001 — Dein Sprachassistent</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#050a12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Projekt 001">
+
 <style>
   :root{
     --bg-0:#050a12;
@@ -196,6 +206,11 @@
     color:var(--text-lo);
   }
   button.ghost:hover{ background:rgba(255,93,108,0.08); }
+  button#installBtn{
+    border-color: rgba(92,242,168,0.4);
+    color: var(--ok);
+  }
+  button#installBtn:hover{ border-color: var(--ok); background: rgba(92,242,168,0.08); }
   button:disabled{ opacity:0.4; cursor:not-allowed; }
 
   /* PANEL */
@@ -336,6 +351,7 @@
     <button class="primary" id="toggleBtn">Aktivieren</button>
     <button id="functionsBtn">Alle Funktionen</button>
     <button id="settingsBtn">Einstellungen</button>
+    <button id="installBtn" style="display:none;">App installieren</button>
   </div>
   <div class="controls controls-secondary">
     <button class="ghost danger" id="clearLogBtn">Verlauf löschen</button>
@@ -407,6 +423,7 @@
       <ul>
         <li>„Wirf eine Münze“ / „Würfle“</li>
         <li>„Witz“ / „Motivier mich“</li>
+        <li>„Hallo“ / „Wie geht es dir“ / „Ich heiße …“ / „Wie heiße ich“ / „Erzähl mir mehr“ (Konversation mit Gedächtnis für Namen & letztes Thema)</li>
         <li>„Systemdiagnose“</li>
         <li>„Formellen Modus an/aus“ · „Hellen/Dunklen Modus“</li>
       </ul>
@@ -500,7 +517,10 @@
     reminders: [],
     commandBuffer: '',
     commandTimer: null,
-    defaultSearchEngine: 'google'
+    defaultSearchEngine: 'google',
+    userName: null,
+    lastTopic: '',
+    awaitingMood: false
   };
 
   const el = {
@@ -512,6 +532,7 @@
     settingsBtn: document.getElementById('settingsBtn'),
     settingsPanel: document.getElementById('settingsPanel'),
     functionsBtn: document.getElementById('functionsBtn'),
+    installBtn: document.getElementById('installBtn'),
     functionsPanel: document.getElementById('functionsPanel'),
     clearLogBtn: document.getElementById('clearLogBtn'),
     statusDot: document.getElementById('statusDot'),
@@ -722,7 +743,8 @@
 
   // Versucht zuerst eine direkte Antwort zu finden (über eine Instant-Answer-API ohne
   // Schlüssel), und öffnet nur bei Bedarf eine vollständige Suche als Rückfallebene.
-  function answerQuery(t){
+  function answerQuery(t, openSearchOnMiss){
+    if(openSearchOnMiss === undefined) openSearchOnMiss = true;
     const q = t.replace(/^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s+/i, '').trim();
     if(!q){ speak("Was möchtest du wissen?"); return; }
     speak("Einen Moment, ich schaue nach.");
@@ -733,14 +755,20 @@
           (data.RelatedTopics && data.RelatedTopics[0] && data.RelatedTopics[0].Text);
         if(answer){
           speak(answer.length > 380 ? answer.slice(0,380) + '…' : answer);
-        } else {
+        } else if(openSearchOnMiss){
           speak(`Dazu habe ich keine direkte Antwort gefunden. Ich öffne stattdessen eine Suche zu „${q}“.`);
           runSearch(state.defaultSearchEngine, q);
+        } else {
+          speak(`Das habe ich noch nicht gelernt. Wenn du magst, sag „Suche nach ${q}“, dann schaue ich gezielt nach.`);
         }
       })
       .catch(() => {
-        speak(`Das konnte ich gerade nicht direkt beantworten. Ich öffne stattdessen eine Suche zu „${q}“.`);
-        runSearch(state.defaultSearchEngine, q);
+        if(openSearchOnMiss){
+          speak(`Das konnte ich gerade nicht direkt beantworten. Ich öffne stattdessen eine Suche zu „${q}“.`);
+          runSearch(state.defaultSearchEngine, q);
+        } else {
+          speak("Das habe ich noch nicht gelernt.");
+        }
       });
   }
 
@@ -1100,20 +1128,64 @@
       run: () => { state.formal = false; el.formalMode.checked = false; speak("Alles klar, zurück zum lockeren Modus."); }
     },
     {
+      test: t => /^(ich heiße|mein name ist)\s+/.test(t),
+      run: (t) => {
+        const name = t.replace(/^(ich heiße|mein name ist)\s+/,'').trim();
+        state.userName = name.charAt(0).toUpperCase() + name.slice(1);
+        speak(`Freut mich, ${state.userName}! Ich werde mir das merken.`);
+      }
+    },
+    {
+      test: t => /wie heiße ich|wer bin ich|kennst du meinen namen/.test(t),
+      run: () => speak(state.userName ? `Du bist ${state.userName}.` : "Das weiß ich noch nicht — sag mir einfach: Ich heiße ...")
+    },
+    {
+      test: t => /^(hallo|hi|hey|servus|moin)\b/.test(t),
+      run: () => speak(state.userName ? `Hallo ${state.userName}${chef()}! Was kann ich für dich tun?` : `Hallo${chef()}! Was kann ich für dich tun?`)
+    },
+    {
+      test: t => /^(tschüss|bis später|auf wiedersehen|ciao|bye)\b/.test(t),
+      run: () => speak(state.userName ? `Bis später, ${state.userName}!` : "Bis später!")
+    },
+    {
+      test: t => /wie geht es dir|wie geht's dir|wie gehts dir/.test(t),
+      run: () => { state.awaitingMood = true; speak(`Mir geht es gut, danke der Nachfrage${chef()}! Und wie geht es dir?`); }
+    },
+    {
+      test: t => /^(erzähl( mir)? mehr|und weiter|und dann\??|weiter\??)$/.test(t),
+      run: () => {
+        if(!state.lastTopic){ speak("Wozu genau soll ich mehr erzählen?"); return; }
+        answerQuery('was ist ' + state.lastTopic);
+      }
+    },
+    {
       test: t => /wer bist du|dein name/.test(t),
       run: () => speak(`Ich bin ${state.assistantName}, dein persönlicher Assistent${chef()}.`)
     },
     { test: t => /danke/.test(t), run: () => speak(state.formal ? `Gern geschehen, Chef.` : "Gern geschehen.") },
     { test: t => /witz/.test(t), run: () => speak("Warum können Geister so schlecht lügen? Weil man durch sie hindurchsieht.") },
     {
-      test: () => true, // Fallback
-      run: (t) => speak("Das habe ich noch nicht gelernt. Du kannst diesen Befehl im Code unter „commands“ selbst ergänzen.")
+      test: () => true, // Intelligenter Fallback: erst eine echte Antwort versuchen, statt einfach aufzugeben
+      run: (t) => answerQuery('was ist ' + t, false)
     }
   ];
 
   function handleCommand(text){
     addLog('user', text);
     const t = collapseDigits(text.toLowerCase().trim());
+
+    // Kontext: Wenn zuvor "Wie geht es dir?" gestellt wurde, auf eine Stimmungsantwort reagieren
+    if(state.awaitingMood){
+      state.awaitingMood = false;
+      if(/gut|super|bestens|prima|klasse|toll|großartig/.test(t)){
+        speak(`Das freut mich zu hören${chef()}! Womit kann ich dir helfen?`); return;
+      } else if(/schlecht|müde|nicht so gut|traurig|gestresst|erschöpft/.test(t)){
+        speak(`Das tut mir leid${chef()}. Ich hoffe, es wird bald besser. Soll ich dich mit etwas ablenken oder unterstützen?`); return;
+      }
+      // Keine klare Stimmungsantwort erkannt -> ganz normal weiter als Befehl auswerten
+    }
+
+    state.lastTopic = t;
     for(const c of commands){
       if(c.test(t)){ c.run(t); return; }
     }
@@ -1196,7 +1268,21 @@
   const COMMAND_SILENCE_MS = 1500;
 
   function feedCommandText(chunk){
-    state.commandBuffer = (state.commandBuffer + ' ' + chunk).trim();
+    chunk = chunk.trim();
+    if(!chunk){ resetCommandTimer(); return; }
+    const buf = state.commandBuffer;
+    const bufLower = buf.toLowerCase();
+    const chunkLower = chunk.toLowerCase();
+    if(!buf){
+      state.commandBuffer = chunk;
+    } else if(chunkLower.startsWith(bufLower)){
+      // Neuer Chunk enthält den bisherigen Puffer bereits komplett (wächst kumulativ) -> ersetzen
+      state.commandBuffer = chunk;
+    } else if(bufLower.endsWith(chunkLower) || bufLower.includes(chunkLower)){
+      // Chunk steckt schon im Puffer -> Duplikat ignorieren
+    } else {
+      state.commandBuffer = (buf + ' ' + chunk).trim();
+    }
     resetCommandTimer();
   }
 
@@ -1304,6 +1390,41 @@
   if(synth){
     populateVoices();
     synth.onvoiceschanged = populateVoices;
+  }
+
+  // --- PWA: als installierbare App einrichten ---
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    el.installBtn.style.display = 'inline-block';
+  });
+
+  el.installBtn.addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    el.installBtn.style.display = 'none';
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    el.installBtn.style.display = 'none';
+  });
+
+  // Wenn die App bereits installiert im eigenen Fenster läuft (statt im Browser-Tab),
+  // direkt beim Öffnen aktivieren, damit sofort weiter zugehört wird.
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if(isStandalone && supported){
+    window.addEventListener('load', () => {
+      setTimeout(() => { armAssistant(); }, 600);
+    });
   }
 
   updateWakeWordLabel();
