@@ -205,7 +205,8 @@
     font-size:11.5px;
     color:var(--text-lo);
   }
-  button.ghost:hover{ background:rgba(255,93,108,0.08); }
+  button.ghost:hover{ background:rgba(120,200,255,0.08); }
+  button.ghost.danger:hover{ background:rgba(255,93,108,0.08); }
   button#installBtn{
     border-color: rgba(92,242,168,0.4);
     color: var(--ok);
@@ -352,6 +353,7 @@
     <button id="functionsBtn">Alle Funktionen</button>
     <button id="settingsBtn">Einstellungen</button>
     <button id="installBtn" style="display:none;">App installieren</button>
+    <button id="updateBtn" class="ghost" style="display:none;">Nach Update suchen</button>
   </div>
   <div class="controls controls-secondary">
     <button class="ghost danger" id="clearLogBtn">Verlauf löschen</button>
@@ -534,6 +536,7 @@
     settingsPanel: document.getElementById('settingsPanel'),
     functionsBtn: document.getElementById('functionsBtn'),
     installBtn: document.getElementById('installBtn'),
+    updateBtn: document.getElementById('updateBtn'),
     functionsPanel: document.getElementById('functionsPanel'),
     clearLogBtn: document.getElementById('clearLogBtn'),
     statusDot: document.getElementById('statusDot'),
@@ -1497,8 +1500,27 @@
       navigator.serviceWorker.register('sw.js').then((reg) => {
         reg.update().catch(() => {});
       }).catch(() => {});
+      el.updateBtn.style.display = 'inline-block';
     });
   }
+
+  // Manueller "Nach Update suchen"-Knopf: entfernt konsequent JEDEN Service Worker
+  // und JEDEN Cache dieser Seite und lädt danach komplett frisch vom Server neu.
+  // Damit lässt sich ein "hängengebliebener" Zustand jederzeit ohne Entwicklertools lösen.
+  el.updateBtn.addEventListener('click', async () => {
+    el.updateBtn.textContent = 'Suche …';
+    try{
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if('caches' in window){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+    }catch(e){ /* ignorieren, trotzdem neu laden */ }
+    window.location.href = window.location.pathname + '?refresh=' + Date.now();
+  });
 
   let deferredInstallPrompt = null;
   window.addEventListener('beforeinstallprompt', (e) => {
