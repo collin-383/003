@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROJEKT 001 — Dein Sprachassistent</title>
+
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#050a12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Projekt 001">
+
+<style>
+  :root{
+    --bg-0:#050a12;
+    --bg-1:#0a1420;
+    --panel:#0d1826;
+    --line: rgba(120,200,255,0.15);
+    --accent: #4fd8ff;
+    --accent-dim: rgba(79,216,255,0.35);
+    --gold: #e8b45a;
+    --text-hi:#eaf6ff;
+    --text-lo:#7f9bb3;
+    --danger:#ff5d6c;
+    --ok:#5cf2a8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(79,216,255,0.08), transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, rgba(232,180,90,0.06), transparent 60%),
+      var(--bg-0);
+    color:var(--text-hi);
+    font-family: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    overflow-x:hidden;
+  }
+  .mono{ font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace; letter-spacing:0.04em; }
+
+  header{
+    width:100%;
+    max-width:1000px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:22px 24px 8px 24px;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .brand .name{
+    font-size:22px; font-weight:700; letter-spacing:0.12em;
+    color:var(--text-hi);
+  }
+  .brand .tag{
+    font-size:11px; color:var(--text-lo); text-transform:uppercase; letter-spacing:0.18em;
+  }
+  .status-pill{
+    font-size:11px; padding:6px 12px; border-radius:20px;
+    border:1px solid var(--line); color:var(--text-lo);
+    display:flex; align-items:center; gap:8px;
+    text-transform:uppercase; letter-spacing:0.1em;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-lo); transition:all .3s; }
+  .dot.on{ background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .dot.off{ background:var(--danger); box-shadow:0 0 8px var(--danger); }
+
+  main{
+    width:100%;
+    max-width:1000px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px 24px 60px 24px;
+    gap:28px;
+  }
+
+  /* ORB */
+  .orb-wrap{
+    position:relative;
+    width:280px; height:280px;
+    margin-top:10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ring{
+    position:absolute; border-radius:50%;
+    border:1px solid var(--line);
+  }
+  .ring.r1{ width:280px; height:280px; }
+  .ring.r2{ width:225px; height:225px; border-style:dashed; opacity:0.6; }
+  .ring.r3{ width:170px; height:170px; }
+  .orb-core{
+    position:relative;
+    width:120px; height:120px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #bdf1ff, var(--accent) 40%, #0c4f66 100%);
+    box-shadow: 0 0 40px var(--accent-dim), inset 0 0 30px rgba(255,255,255,0.25);
+    transition: box-shadow .3s, transform .3s;
+  }
+  .orb-wrap.idle .orb-core{ animation: breathe 4s ease-in-out infinite; }
+  .orb-wrap.armed .ring{ animation: spin 12s linear infinite; }
+  .orb-wrap.armed .ring.r2{ animation: spin 8s linear infinite reverse; }
+  .orb-wrap.listening .orb-core{
+    animation: pulseFast 1.1s ease-in-out infinite;
+    box-shadow: 0 0 70px var(--accent), inset 0 0 30px rgba(255,255,255,0.4);
+  }
+  .orb-wrap.speaking .orb-core{
+    animation: pulseFast .5s ease-in-out infinite;
+    background: radial-gradient(circle at 35% 30%, #fff2d1, var(--gold) 40%, #6b4a12 100%);
+    box-shadow: 0 0 70px rgba(232,180,90,0.6), inset 0 0 30px rgba(255,255,255,0.4);
+  }
+  .orb-wrap.off .orb-core{
+    background: radial-gradient(circle at 35% 30%, #4a5866, #232f3a 40%, #10161c 100%);
+    box-shadow:none;
+  }
+  .orb-wrap.off .ring{ opacity:0.25; }
+
+  @keyframes breathe{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.05);} }
+  @keyframes pulseFast{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.12);} }
+  @keyframes spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  .state-label{
+    text-align:center;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.2em;
+    color:var(--text-lo);
+    min-height:18px;
+  }
+  .state-label b{ color:var(--accent); font-weight:600; }
+
+  .transcript{
+    width:100%;
+    max-width:640px;
+    min-height:26px;
+    text-align:center;
+    color:var(--text-hi);
+    font-size:16px;
+    padding:0 12px;
+  }
+
+  .search-bar{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    gap:10px;
+  }
+  .search-bar input[type=text]{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text-hi);
+    border-radius:10px;
+    padding:12px 16px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .search-bar input[type=text]:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  .search-bar button{
+    white-space:nowrap;
+  }
+
+  .controls{
+    display:flex; gap:14px; flex-wrap:wrap; justify-content:center;
+  }
+  .controls-secondary{
+    margin-top:-14px;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text-hi);
+    padding:11px 20px;
+    font-size:13px;
+    letter-spacing:0.05em;
+    transition:all .15s;
+  }
+  button:hover{ border-color:var(--accent-dim); background:#102133; }
+  button.primary{
+    background:linear-gradient(180deg, rgba(79,216,255,0.18), rgba(79,216,255,0.06));
+    border-color:var(--accent-dim);
+  }
+  button.primary:hover{ border-color:var(--accent); }
+  button.danger{ border-color:rgba(255,93,108,0.4); }
+  button.danger:hover{ border-color:var(--danger); color:var(--danger); }
+  button.ghost{
+    background:transparent;
+    border-color:transparent;
+    padding:6px 12px;
+    font-size:11.5px;
+    color:var(--text-lo);
+  }
+  button.ghost:hover{ background:rgba(255,93,108,0.08); }
+  button#installBtn{
+    border-color: rgba(92,242,168,0.4);
+    color: var(--ok);
+  }
+  button#installBtn:hover{ border-color: var(--ok); background: rgba(92,242,168,0.08); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  /* PANEL */
+  .panel{
+    width:100%;
+    max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 22px 8px 22px;
+  }
+  .panel h2{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.18em;
+    color:var(--text-lo); margin:0 0 16px 0; font-weight:600;
+  }
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:12px; color:var(--text-lo); margin-bottom:6px;
+    text-transform:uppercase; letter-spacing:0.08em;
+  }  .field input[type=text], .field select{
+    width:100%;
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    color:var(--text-hi);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .field input[type=range]{ width:100%; accent-color:var(--accent); }
+  .row{ display:flex; gap:14px; }
+  .row > *{ flex:1; }
+  .hint{ font-size:12px; color:var(--text-lo); margin-top:4px; line-height:1.5; }
+
+  .fn-group{ margin-bottom:18px; }
+  .fn-group h3{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.1em;
+    color:var(--accent); margin:0 0 8px 0; font-weight:600;
+  }
+  .fn-group ul{ margin:0; padding-left:18px; }
+  .fn-group li{
+    font-size:13px; color:var(--text-hi); line-height:1.7;
+  }
+
+  .log{
+    width:100%; max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .log h2{ font-size:12px; text-transform:uppercase; letter-spacing:0.18em; color:var(--text-lo); margin:0 0 10px 0; }
+  .log-entry{ font-size:13px; margin-bottom:10px; line-height:1.5; }
+  .log-entry .who{ color:var(--accent); font-weight:600; margin-right:6px; }
+  .log-entry.assistant .who{ color:var(--gold); }
+  .log-empty{ color:var(--text-lo); font-size:13px; }
+
+  .notice{
+    width:100%; max-width:640px;
+    border:1px solid rgba(255,93,108,0.35);
+    background:rgba(255,93,108,0.06);
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:12.5px;
+    color:#ffc7cd;
+    line-height:1.6;
+    display:none;
+  }
+  .notice.show{ display:block; }
+
+  footer{
+    width:100%;
+    text-align:center;
+    padding:20px;
+    font-size:11px;
+    color:var(--text-lo);
+    letter-spacing:0.08em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ring, .orb-core{ animation:none !important; }
+  }
+
+  body.light-theme{
+    --bg-0:#f4f8fb;
+    --bg-1:#ffffff;
+    --panel:#ffffff;
+    --line: rgba(20,60,90,0.15);
+    --text-hi:#0d1b26;
+    --text-lo:#5a7185;
+  }
+  body.light-theme{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(79,216,255,0.10), transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, rgba(232,180,90,0.08), transparent 60%),
+      var(--bg-0);
+  }
+
+  body.focus-mode .orb-core{
+    background: radial-gradient(circle at 35% 30%, #e7d4ff, #9b6bff 40%, #3a1a66 100%) !important;
+    box-shadow: 0 0 60px rgba(155,107,255,0.5), inset 0 0 30px rgba(255,255,255,0.3) !important;
+  }
+  body.focus-mode .status-pill{ border-color: rgba(155,107,255,0.4); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="name mono" id="brandName">PROJEKT 001</span>
+    <span class="tag">Sprachassistent</span>
+  </div>
+  <div class="status-pill">
+    <span class="dot off" id="statusDot"></span>
+    <span id="statusText">Inaktiv</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="notice" id="unsupportedNotice">
+    Dieser Browser unterstützt keine Spracherkennung (Web Speech API). Chrome oder Edge am Desktop funktionieren am zuverlässigsten. Du kannst trotzdem den Mikrofon-Button unten für Text-Eingabe nutzen, sobald verfügbar.
+  </div>
+
+  <div class="orb-wrap off" id="orbWrap">
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <div class="orb-core" id="orbCore"></div>
+  </div>
+
+  <div class="state-label" id="stateLabel">Sag „<b id="wakeWordLabel">Hey Projekt 001</b>“, um mich zu wecken — oder starte manuell.</div>
+  <div class="transcript" id="transcript"></div>
+
+  <div class="controls">
+    <button class="primary" id="toggleBtn">Aktivieren</button>
+    <button id="functionsBtn">Alle Funktionen</button>
+    <button id="settingsBtn">Einstellungen</button>
+    <button id="installBtn" style="display:none;">App installieren</button>
+  </div>
+  <div class="controls controls-secondary">
+    <button class="ghost danger" id="clearLogBtn">Verlauf löschen</button>
+  </div>
+
+  <form class="search-bar" id="searchForm" autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Frag Projekt 001 etwas oder tippe einen Befehl …" maxlength="200">
+    <button type="submit" class="primary" id="searchSubmit">Senden</button>
+  </form>
+
+  <div class="panel" id="functionsPanel" style="display:none;">
+    <h2>Alle Funktionen</h2>
+
+    <div class="fn-group">
+      <h3>Zeit &amp; Kalender</h3>
+      <ul>
+        <li>„Wie spät ist es“</li>
+        <li>„Welches Datum haben wir“</li>
+        <li>„Wie spät ist es in Tokio“ (auch London, New York, Paris, Sydney, Dubai u. a.)</li>
+        <li>„Wie alt wäre ich, geboren am 1.1.2000“</li>
+        <li>„Wie viele Tage sind es bis 24.12.2026“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Rechnen &amp; Umrechnen</h3>
+      <ul>
+        <li>„Rechne 5 plus 3“</li>
+        <li>„5 Kilometer in Meilen“ / „20 Grad Celsius in Fahrenheit“ / kg ↔ Pfund</li>
+        <li>„Berechne Trinkgeld für 50 Euro mit 10 Prozent“</li>
+        <li>„Zufallszahl zwischen 1 und 100“</li>
+        <li>„Generiere ein Passwort“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Wetter &amp; Wissen</h3>
+      <ul>
+        <li>„Wie ist das Wetter“ (per Standortfreigabe)</li>
+        <li>„Wer ist Albert Einstein“ (Wikipedia-Kurzauskunft)</li>
+        <li>„Erzähl mir einen Fakt“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Erinnerungen &amp; Produktivität</h3>
+      <ul>
+        <li>„Merke dir …“ / „Was habe ich mir gemerkt“ / „Erinnerungen löschen“</li>
+        <li>„Stelle einen Timer für 5 Minuten“</li>
+        <li>„Starte Stoppuhr“ / „Stoppe Stoppuhr“ / „Stand der Stoppuhr“</li>
+        <li>„Starte Fokus-Modus für 25 Minuten“ (Pomodoro)</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Web, Apps &amp; Kommunikation</h3>
+      <ul>
+        <li>„Öffne YouTube“ / „Suche nach …“ (nutzt deine Standard-Suchmaschine)</li>
+        <li>„Suche auf Bing/DuckDuckGo/Ecosia/Startpage/Brave/Yahoo/Wikipedia/YouTube nach …“</li>
+        <li>„Was ist …“ / „Beantworte mir …“ / „Erkläre mir …“ (direkte Antwort, sonst automatische Suche)</li>
+        <li>„Öffne WhatsApp / Spotify / Instagram / Telegram / TikTok“ (App oder Web-Fallback)</li>
+        <li>„Rufe 030 1234567 an“ / „Schreibe eine SMS an …“ / „Schreibe eine E-Mail an name@beispiel.de“</li>
+        <li>„Wo bin ich“ / „Navigiere nach Berlin“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Persönlichkeit &amp; System</h3>
+      <ul>
+        <li>„Wirf eine Münze“ / „Würfle“</li>
+        <li>„Witz“ / „Motivier mich“</li>
+        <li>„Hallo“ / „Wie geht es dir“ / „Ich heiße …“ / „Wie heiße ich“ / „Erzähl mir mehr“ (Konversation mit Gedächtnis für Namen & letztes Thema)</li>
+        <li>„Systemdiagnose“</li>
+        <li>„Formellen Modus an/aus“ · „Hellen/Dunklen Modus“</li>
+      </ul>
+    </div>
+
+    <div class="hint" style="margin-bottom:18px;">
+      Tipp: Jeder dieser Befehle funktioniert auch getippt über die Suchleiste — ganz ohne Mikrofon.
+    </div>
+  </div>
+
+  <div class="panel" id="settingsPanel" style="display:none;">
+    <h2>Einstellungen</h2>
+
+    <div class="field">
+      <label for="assistantName">Name der KI</label>
+      <input type="text" id="assistantName" value="Projekt 001" maxlength="24">
+      <div class="hint">Das Weckwort ist automatisch „Hey [Name]“, „Hallo [Name]“ oder „Ok [Name]“. Bei Namen mit Ziffern (wie „001“) versteht die App sowohl die gesprochenen Ziffern als auch ausgeschriebene Zahlwörter — die Erkennung ist bei einem reinen Wortnamen aber zuverlässiger.</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="voiceSelect">Stimme</label>
+        <select id="voiceSelect"></select>
+      </div>
+      <div class="field">
+        <label for="rateRange">Sprechtempo</label>
+        <input type="range" id="rateRange" min="0.6" max="1.6" step="0.05" value="1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="pitchRange">Tonhöhe</label>
+      <input type="range" id="pitchRange" min="0" max="2" step="0.05" value="1">
+    </div>
+
+    <div class="field">
+      <label for="searchEngineSelect">Standard-Suchmaschine</label>
+      <select id="searchEngineSelect">
+        <option value="google">Google</option>
+        <option value="bing">Bing</option>
+        <option value="duckduckgo">DuckDuckGo</option>
+        <option value="ecosia">Ecosia</option>
+        <option value="startpage">Startpage</option>
+        <option value="brave">Brave Search</option>
+        <option value="yahoo">Yahoo</option>
+        <option value="wikipedia">Wikipedia</option>
+        <option value="youtube">YouTube</option>
+      </select>
+      <div class="hint">Wird bei „Suche nach …“ genutzt. Du kannst jederzeit auch eine andere Suchmaschine direkt nennen: „Suche auf Bing nach …“.</div>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="continuousListen" checked style="width:auto; margin-right:8px;"> Dauerhaft auf Weckwort lauschen (solange diese Seite geöffnet ist)</label>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="formalMode" style="width:auto; margin-right:8px;"> Formeller Modus (Jarvis-Stil, spricht dich mit „Chef“ an)</label>
+    </div>
+
+    <div class="hint" style="margin-bottom:16px;">
+      Hinweis: Aus Sicherheits- und Datenschutzgründen kann kein Browser dauerhaft im Hintergrund lauschen, wenn Tab/App komplett geschlossen sind — nur solange diese Seite offen ist (auch minimiert/im Hintergrundtab). Für echtes 24/7-Hintergrundlauschen wäre eine installierte Geräte-App mit Systemberechtigung nötig. Solange „Aktivieren“ eingeschaltet ist, hält die App zusätzlich den Bildschirm wach (Wake Lock) und startet die Erkennung automatisch neu, falls sie im Hintergrund einmal lautlos aussetzt — das erhöht spürbar die Zuverlässigkeit, solange die App offen bleibt.
+    </div>
+
+    <div class="hint" style="margin-bottom:18px;">
+      Tipp: Alle Befehle funktionieren auch ganz ohne Mikrofon — einfach in die Suchleiste unter dem Orb eintippen und auf „Senden“ klicken oder Enter drücken. Eine vollständige Übersicht findest du über den Button „Alle Funktionen“.
+    </div>
+  </div>
+
+  <div class="log" id="logPanel">
+    <h2>Verlauf</h2>
+    <div id="logList"><div class="log-empty">Noch keine Unterhaltung.</div></div>
+  </div>
+
+</main>
+
+<footer>PROJEKT 001 läuft vollständig lokal in diesem Browser · Keine Daten werden extern gespeichert</footer>
+
+<script>
+(function(){
+  const state = {
+    assistantName: "Projekt 001",
+    armed: false,          // lauscht auf Weckwort
+    listeningCommand: false, // lauscht gerade auf Befehl nach Aktivierung
+    speaking: false,
+    voice: null,
+    rate: 1,
+    pitch: 1,
+    continuous: true,
+    formal: false,
+    log: [],
+    reminders: [],
+    commandBuffer: '',
+    commandTimer: null,
+    defaultSearchEngine: 'google',
+    userName: null,
+    lastTopic: '',
+    awaitingMood: false,
+    recognitionActive: false
+  };
+
+  const el = {
+    orbWrap: document.getElementById('orbWrap'),
+    stateLabel: document.getElementById('stateLabel'),
+    wakeWordLabel: document.getElementById('wakeWordLabel'),
+    transcript: document.getElementById('transcript'),
+    toggleBtn: document.getElementById('toggleBtn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    settingsPanel: document.getElementById('settingsPanel'),
+    functionsBtn: document.getElementById('functionsBtn'),
+    installBtn: document.getElementById('installBtn'),
+    functionsPanel: document.getElementById('functionsPanel'),
+    clearLogBtn: document.getElementById('clearLogBtn'),
+    statusDot: document.getElementById('statusDot'),
+    statusText: document.getElementById('statusText'),
+    brandName: document.getElementById('brandName'),
+    assistantName: document.getElementById('assistantName'),
+    voiceSelect: document.getElementById('voiceSelect'),
+    rateRange: document.getElementById('rateRange'),
+    pitchRange: document.getElementById('pitchRange'),
+    continuousListen: document.getElementById('continuousListen'),
+    searchEngineSelect: document.getElementById('searchEngineSelect'),
+    formalMode: document.getElementById('formalMode'),
+    logList: document.getElementById('logList'),
+    unsupportedNotice: document.getElementById('unsupportedNotice'),
+    searchForm: document.getElementById('searchForm'),
+    searchInput: document.getElementById('searchInput')
+  };
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const synth = window.speechSynthesis;
+  let recognition = null;
+  let supported = !!SpeechRecognition;
+
+  if(!supported){
+    el.unsupportedNotice.classList.add('show');
+    el.toggleBtn.disabled = true;
+  }
+
+  function updateWakeWordLabel(){
+    el.wakeWordLabel.textContent = "Hey " + state.assistantName;
+    state.wakeWord = ("hey " + state.assistantName).toLowerCase();
+    el.brandName.textContent = state.assistantName.toUpperCase();
+  }
+
+  function setVisualState(mode){
+    el.orbWrap.className = 'orb-wrap ' + mode;
+    const map = {
+      off: "Inaktiv — klicke „Aktivieren“",
+      idle: "Sag „<b>Hey " + state.assistantName + "</b>“, um mich zu wecken.",
+      armed: "Sag „<b>Hey " + state.assistantName + "</b>“, um mich zu wecken.",
+      listening: state.assistantName + " hört zu …",
+      speaking: state.assistantName + " antwortet …"
+    };
+    el.stateLabel.innerHTML = map[mode] || "";
+    el.statusDot.className = 'dot ' + (mode === 'off' ? 'off' : 'on');
+    el.statusText.textContent = mode === 'off' ? 'Inaktiv' :
+      mode === 'listening' ? 'Hört Befehl' :
+      mode === 'speaking' ? 'Spricht' : 'Wartet auf Weckwort';
+  }
+
+  function addLog(who, text){
+    state.log.push({who, text});
+    if(state.log.length === 1) el.logList.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + (who === 'assistant' ? 'assistant' : 'user');
+    div.innerHTML = '<span class="who">' + (who === 'assistant' ? state.assistantName : 'Du') + ':</span>' +
+      escapeHtml(text);
+    el.logList.appendChild(div);
+    el.logList.scrollTop = el.logList.scrollHeight;
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // Wandelt gesprochene deutsche Zahlwörter (z.B. "null null eins") in Ziffern um,
+  // damit Namen wie "001" auch als gesprochene Zahl erkannt werden.
+  function collapseDigits(text){
+    // Bewusst OHNE "ein"/"eine" — das sind meist normale Artikel ("ein Computer",
+    // "eine Webseite"), keine Zahlwörter. Nur eindeutige Zahlwörter werden erkannt.
+    const map = {null:'0', eins:'1', zwei:'2', drei:'3', vier:'4', fünf:'5', sechs:'6', sieben:'7', acht:'8', neun:'9'};
+    const words = text.split(/\s+/);
+    const out = [];
+    let buf = '';
+    for(const w of words){
+      if(map[w] !== undefined){ buf += map[w]; }
+      else { if(buf){ out.push(buf); buf=''; } if(w) out.push(w); }
+    }
+    if(buf) out.push(buf);
+    return out.join(' ');
+  }
+
+  function matchWakeWord(combinedRaw){
+    const rawLower = combinedRaw.toLowerCase();
+    const n = state.assistantName.toLowerCase().trim();
+    const phrases = ["hey " + n, "hallo " + n, "ok " + n];
+    for(const p of phrases){
+      if(rawLower.includes(p)) return { matched:true, rest: rawLower.split(p).pop().trim() };
+    }
+    const normalized = collapseDigits(rawLower);
+    for(const p of phrases){
+      if(normalized.includes(p)) return { matched:true, rest: normalized.split(p).pop().trim() };
+    }
+    return { matched:false, rest:'' };
+  }
+
+  function chef(){ return state.formal ? ', Chef' : ''; }
+
+  function speak(text){
+    addLog('assistant', text);
+    if(!synth) return;
+    synth.cancel();
+    // Mikrofon sofort pausieren, BEVOR die Ausgabe beginnt — sonst kann die
+    // Erkennung die eigene Stimme der KI aufschnappen und sich selbst triggern.
+    state.speaking = true;
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    setVisualState('speaking');
+    const utter = new SpeechSynthesisUtterance(text);
+    if(state.voice) utter.voice = state.voice;
+    utter.rate = state.rate;
+    utter.pitch = state.pitch;
+    utter.lang = (state.voice && state.voice.lang) || 'de-DE';
+    utter.onstart = () => { state.speaking = true; setVisualState('speaking'); };
+    utter.onend = () => {
+      state.speaking = false;
+      if(state.armed) startRecognition();
+      else setVisualState('off');
+    };
+    utter.onerror = () => {
+      // TTS-Fehler (z. B. Stimme nicht verfügbar) darf das Mikrofon nicht dauerhaft blockieren
+      state.speaking = false;
+      if(state.armed) startRecognition();
+      else setVisualState('off');
+    };
+    synth.speak(utter);
+  }
+
+  // --- Zusatzfunktionen ---
+  function weatherCodeToText(code){
+    if(code === 0) return "klarem Himmel";
+    if([1,2,3].includes(code)) return "teils bewölktem Himmel";
+    if([45,48].includes(code)) return "Nebel";
+    if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "Regen";
+    if([71,73,75,77,85,86].includes(code)) return "Schnee";
+    if([95,96,99].includes(code)) return "Gewitter";
+    return "wechselhaftem Wetter";
+  }
+
+  function fetchWeather(){
+    if(!navigator.geolocation){ speak("Für Wetterdaten benötige ich Standortzugriff, den dieser Browser nicht anbietet."); return; }
+    speak("Einen Moment, ich hole die aktuellen Wetterdaten.");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try{
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+        const data = await res.json();
+        const cw = data.current_weather;
+        speak(`Aktuell sind es ${Math.round(cw.temperature)} Grad bei ${weatherCodeToText(cw.weathercode)}. Der Wind weht mit ${Math.round(cw.windspeed)} Kilometern pro Stunde${chef()}.`);
+      }catch(e){
+        speak("Die Wetterdaten konnte ich gerade nicht abrufen.");
+      }
+    }, () => speak("Ohne deine Standortfreigabe kann ich das Wetter nicht abrufen."));
+  }
+
+  function startTimer(t){
+    const m = t.match(/(\d+)\s*(minuten|minute)/);
+    const minutes = m ? parseInt(m[1]) : null;
+    if(!minutes){ speak("Für wie viele Minuten soll der Timer laufen?"); return; }
+    speak(`Timer über ${minutes} Minute${minutes===1?'':'n'} gestartet${chef()}.`);
+    setTimeout(() => speak(`Dein Timer über ${minutes} Minute${minutes===1?'':'n'} ist abgelaufen.`), minutes * 60000);
+  }
+
+  function fetchWikipedia(query){
+    if(!query){ speak("Wonach soll ich suchen?"); return; }
+    speak(`Ich schaue nach, was ich über ${query} finde.`);
+    fetch(`https://de.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const extract = data && data.extract ? data.extract.split('. ').slice(0,2).join('. ') : '';
+        speak(extract ? extract + '.' : `Dazu habe ich leider nichts gefunden.`);
+      })
+      .catch(() => speak("Die Suche hat gerade nicht funktioniert."));
+  }
+
+  const siteMap = {
+    youtube:'https://youtube.com', google:'https://google.com', wikipedia:'https://de.wikipedia.org',
+    amazon:'https://amazon.de', netflix:'https://netflix.com', gmail:'https://mail.google.com',
+    maps:'https://maps.google.com', spotify:'https://open.spotify.com', github:'https://github.com'
+  };
+
+  function openWebsite(t){
+    const target = t.replace(/^öffne\s+/,'').trim();
+    if(!target){ speak("Welche Seite soll ich öffnen?"); return; }
+    const key = Object.keys(siteMap).find(k => target.includes(k));
+    const url = key ? siteMap[key] : ('https://' + target.replace(/\s+/g,'') + (target.includes('.') ? '' : '.de'));
+    window.open(url, '_blank');
+    speak(`Ich öffne ${target}${chef()}.`);
+  }
+
+  const searchEngines = {
+    google:     { name:'Google',       url: q => 'https://www.google.com/search?q=' + encodeURIComponent(q) },
+    bing:       { name:'Bing',         url: q => 'https://www.bing.com/search?q=' + encodeURIComponent(q) },
+    duckduckgo: { name:'DuckDuckGo',   url: q => 'https://duckduckgo.com/?q=' + encodeURIComponent(q) },
+    ecosia:     { name:'Ecosia',       url: q => 'https://www.ecosia.org/search?q=' + encodeURIComponent(q) },
+    startpage:  { name:'Startpage',    url: q => 'https://www.startpage.com/sp/search?query=' + encodeURIComponent(q) },
+    yahoo:      { name:'Yahoo',        url: q => 'https://search.yahoo.com/search?p=' + encodeURIComponent(q) },
+    brave:      { name:'Brave Search', url: q => 'https://search.brave.com/search?q=' + encodeURIComponent(q) },
+    wikipedia:  { name:'Wikipedia',    url: q => 'https://de.wikipedia.org/w/index.php?search=' + encodeURIComponent(q) },
+    youtube:    { name:'YouTube',      url: q => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q) }
+  };
+
+  function runSearch(engineKey, q){
+    const eng = searchEngines[engineKey] || searchEngines[state.defaultSearchEngine] || searchEngines.google;
+    window.open(eng.url(q), '_blank');
+    speak(`Ich habe für dich auf ${eng.name} nach „${q}“ gesucht${chef()}.`);
+  }
+
+  function webSearch(t){
+    // Explizite Suchmaschine erkannt: "suche auf bing nach ..." / "suche bei duckduckgo nach ..."
+    const explicit = t.match(/^suche\s+(?:auf|bei|mit)\s+(google|bing|duckduckgo|ecosia|startpage|yahoo|brave|wikipedia|youtube)\s+nach\s+(.+)/i);
+    if(explicit){
+      runSearch(explicit[1].toLowerCase(), explicit[2].trim());
+      return;
+    }
+    const q = t.replace(/^(suche(\s+nach)?|google)\s+/i, '').trim();
+    if(!q){ speak("Wonach soll ich suchen?"); return; }
+    runSearch(state.defaultSearchEngine, q);
+  }
+
+  // Versucht zuerst eine direkte Antwort zu finden (über eine Instant-Answer-API ohne
+  // Schlüssel), und öffnet nur bei Bedarf eine vollständige Suche als Rückfallebene.
+  function answerQuery(t, openSearchOnMiss){
+    if(openSearchOnMiss === undefined) openSearchOnMiss = true;
+    const q = t.replace(/^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s+/i, '').trim();
+    if(!q){ speak("Was möchtest du wissen?"); return; }
+    speak("Einen Moment, ich schaue nach.");
+    fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`)
+      .then(r => r.json())
+      .then(data => {
+        const answer = data.AbstractText || data.Answer ||
+          (data.RelatedTopics && data.RelatedTopics[0] && data.RelatedTopics[0].Text);
+        if(answer){
+          speak(answer.length > 380 ? answer.slice(0,380) + '…' : answer);
+        } else if(openSearchOnMiss){
+          speak(`Dazu habe ich keine direkte Antwort gefunden. Ich öffne stattdessen eine Suche zu „${q}“.`);
+          runSearch(state.defaultSearchEngine, q);
+        } else {
+          speak(`Das habe ich noch nicht gelernt. Wenn du magst, sag „Suche nach ${q}“, dann schaue ich gezielt nach.`);
+        }
+      })
+      .catch(() => {
+        if(openSearchOnMiss){
+          speak(`Das konnte ich gerade nicht direkt beantworten. Ich öffne stattdessen eine Suche zu „${q}“.`);
+          runSearch(state.defaultSearchEngine, q);
+        } else {
+          speak("Das habe ich noch nicht gelernt.");
+        }
+      });
+  }
+
+  function systemDiagnose(){
+    const parts = [];
+    parts.push(`Bildschirmauflösung ${window.screen.width} mal ${window.screen.height} Pixel`);
+    parts.push(navigator.onLine ? "Verbindung aktiv" : "keine Internetverbindung");
+    if(navigator.connection && navigator.connection.effectiveType){
+      parts.push(`Netzwerktyp ${navigator.connection.effectiveType}`);
+    }
+    if(navigator.getBattery){
+      navigator.getBattery().then(b => {
+        speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}, Akkustand ${Math.round(b.level*100)} Prozent.`);
+      }).catch(() => speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}.`));
+    } else {
+      speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}.`);
+    }
+  }
+
+  const motivationQuotes = [
+    "Jeder große Erfolg beginnt mit dem Mut, den ersten Schritt zu machen.",
+    "Du bist bereits weiter, als du gestern warst.",
+    "Fokus schlägt Tempo. Mach einfach weiter, Schritt für Schritt.",
+    "Die beste Zeit anzufangen war gestern. Die zweitbeste ist genau jetzt."
+  ];
+
+  const funFacts = [
+    "Ein Tag auf der Venus dauert länger als ein Jahr auf der Venus.",
+    "Honig verdirbt praktisch nie — archäologische Funde aus Grabkammern waren nach tausenden Jahren noch genießbar.",
+    "Oktopusse haben drei Herzen und blaues Blut.",
+    "Der Eiffelturm wird im Sommer durch die Hitzeausdehnung bis zu 15 Zentimeter höher.",
+    "Bananen sind aus botanischer Sicht Beeren, Erdbeeren dagegen nicht.",
+    "Ein Blitz ist etwa fünfmal heißer als die Oberfläche der Sonne."
+  ];
+
+  const cityTimezones = {
+    berlin:'Europe/Berlin', london:'Europe/London', 'new york':'America/New_York',
+    newyork:'America/New_York', tokio:'Asia/Tokyo', tokyo:'Asia/Tokyo', paris:'Europe/Paris',
+    moskau:'Europe/Moscow', sydney:'Australia/Sydney', dubai:'Asia/Dubai',
+    'los angeles':'America/Los_Angeles', losangeles:'America/Los_Angeles',
+    peking:'Asia/Shanghai', beijing:'Asia/Shanghai', rom:'Europe/Rome', madrid:'Europe/Madrid'
+  };
+
+  function cityTime(t){
+    const target = t.replace(/^(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s+/,'').trim();
+    const key = Object.keys(cityTimezones).find(c => target.includes(c));
+    if(!key){ speak("Diese Stadt kenne ich noch nicht. Versuch es z. B. mit Tokio, New York oder London."); return; }
+    try{
+      const now = new Date();
+      const formatted = new Intl.DateTimeFormat('de-DE', { timeZone: cityTimezones[key], hour:'2-digit', minute:'2-digit' }).format(now);
+      speak(`In ${target.trim()} ist es gerade ${formatted} Uhr.`);
+    }catch(e){ speak("Das konnte ich leider nicht ermitteln."); }
+  }
+
+  function convertUnits(t){
+    let m;
+    if(m = t.match(/([\d.,]+)\s*(km|kilometer)\s*(in|nach|zu)\s*(meilen|miles)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Kilometer sind etwa ${(v*0.621371).toFixed(2)} Meilen.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(meilen|miles)\s*(in|nach|zu)\s*(km|kilometer)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Meilen sind etwa ${(v*1.60934).toFixed(2)} Kilometer.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(kg|kilogramm|kilo)\s*(in|nach|zu)\s*(pfund|lbs|pounds)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Kilogramm sind etwa ${(v*2.20462).toFixed(2)} Pfund.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(pfund|lbs|pounds)\s*(in|nach|zu)\s*(kg|kilogramm|kilo)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Pfund sind etwa ${(v*0.453592).toFixed(2)} Kilogramm.`); return;
+    }
+    if(m = t.match(/([\d.,-]+)\s*grad\s*celsius\s*(in|nach|zu)\s*fahrenheit/) || t.match(/([\d.,-]+)\s*°?c\s*(in|nach|zu)\s*(°?f|fahrenheit)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Grad Celsius sind ${((v*9/5)+32).toFixed(1)} Grad Fahrenheit.`); return;
+    }
+    if(m = t.match(/([\d.,-]+)\s*grad\s*fahrenheit\s*(in|nach|zu)\s*celsius/) || t.match(/([\d.,-]+)\s*°?f\s*(in|nach|zu)\s*(°?c|celsius)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Grad Fahrenheit sind ${((v-32)*5/9).toFixed(1)} Grad Celsius.`); return;
+    }
+    speak("Diese Umrechnung kenne ich noch nicht. Ich kann Kilometer/Meilen, Kilogramm/Pfund und Celsius/Fahrenheit umrechnen.");
+  }
+
+  function randomNumberCmd(t){
+    const m = t.match(/zwischen\s+(\d+)\s+und\s+(\d+)/);
+    const min = m ? parseInt(m[1]) : 1;
+    const max = m ? parseInt(m[2]) : 100;
+    const lo = Math.min(min,max), hi = Math.max(min,max);
+    speak(`Meine Zahl ist ${Math.floor(Math.random()*(hi-lo+1))+lo}.`);
+  }
+
+  function generatePassword(t){
+    const m = t.match(/(\d+)\s*(zeichen|stellen)/);
+    const len = m ? Math.min(Math.max(parseInt(m[1]),4),64) : 16;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+    let pw = '';
+    for(let i=0;i<len;i++) pw += chars[Math.floor(Math.random()*chars.length)];
+    speak(`Dein Passwort mit ${len} Zeichen: ${pw}`);
+  }
+
+  // --- 1) Bestimmte Apps direkt öffnen (Deep-Links, fällt auf Web-Version zurück) ---
+  const appSchemes = {
+    whatsapp: { scheme:'whatsapp://send', web:'https://web.whatsapp.com' },
+    spotify: { scheme:'spotify:', web:'https://open.spotify.com' },
+    instagram: { scheme:'instagram://app', web:'https://instagram.com' },
+    telegram: { scheme:'tg://', web:'https://web.telegram.org' },
+    tiktok: { scheme:'tiktok://', web:'https://tiktok.com' },
+    'google maps': { scheme:'geo:0,0', web:'https://maps.google.com' },
+    outlook: { scheme:'ms-outlook://', web:'https://outlook.com' }
+  };
+
+  function openApp(t){
+    const target = t.replace(/^(öffne|starte)\s+(die\s+app\s+|app\s+)?/,'').trim();
+    const key = Object.keys(appSchemes).find(k => target.includes(k));
+    if(!key){ openWebsite('öffne ' + target); return; }
+    const { scheme, web } = appSchemes[key];
+    speak(`Ich versuche ${key} zu öffnen${chef()}. Falls die App nicht installiert ist, öffne ich die Webseite.`);
+    const clickedAt = Date.now();
+    try{ window.location.href = scheme; }catch(e){}
+    setTimeout(() => {
+      if(!document.hidden && Date.now() - clickedAt < 2500){
+        window.open(web, '_blank');
+      }
+    }, 1200);
+  }
+
+  // --- 2) Direkt anrufen, SMS oder E-Mail vorbereiten ---
+  function callNumber(t){
+    const m = t.match(/(\+?\d[\d\s\/\-]{5,}\d)/);
+    if(!m){ speak("Welche Nummer soll ich anrufen?"); return; }
+    const num = m[1].replace(/[\s\/\-]/g,'');
+    speak(`Ich rufe ${m[1]} an${chef()}.`);
+    window.location.href = 'tel:' + num;
+  }
+
+  function sendSMS(t){
+    const m = t.match(/(\+?\d[\d\s\/\-]{5,}\d)/);
+    if(!m){ speak("An welche Nummer soll ich eine SMS schreiben?"); return; }
+    const num = m[1].replace(/[\s\/\-]/g,'');
+    speak(`Ich öffne eine SMS an ${m[1]}${chef()}.`);
+    window.location.href = 'sms:' + num;
+  }
+
+  function sendEmail(t){
+    const m = t.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if(!m){ speak("An welche E-Mail-Adresse soll ich schreiben?"); return; }
+    speak(`Ich öffne eine E-Mail an ${m[1]}${chef()}.`);
+    window.location.href = 'mailto:' + m[1];
+  }
+
+  // --- 3) Standort erfragen & Navigation starten ---
+  function whereAmI(){
+    if(!navigator.geolocation){ speak("Standortzugriff wird von diesem Browser nicht unterstützt."); return; }
+    speak("Einen Moment, ich ermittle deinen Standort.");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try{
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=de`);
+        const data = await res.json();
+        const place = data.city || data.locality || data.principalSubdivision || 'einem mir unbekannten Ort';
+        speak(`Du befindest dich aktuell in der Nähe von ${place}${data.countryName ? ', ' + data.countryName : ''}.`);
+      }catch(e){ speak("Deinen genauen Standort konnte ich gerade nicht bestimmen."); }
+    }, () => speak("Ohne Standortfreigabe kann ich deinen Standort nicht bestimmen."));
+  }
+
+  function navigateTo(t){
+    const dest = t.replace(/^navigiere\s+(mich\s+)?(nach|zu)\s+/,'').trim();
+    if(!dest){ speak("Wohin soll ich dich navigieren?"); return; }
+    const openRoute = (origin) => {
+      const url = origin
+        ? `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(dest)}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+      window.open(url, '_blank');
+      speak(`Ich öffne die Route nach ${dest}${chef()}.`);
+    };
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        pos => openRoute({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => openRoute(null)
+      );
+    } else openRoute(null);
+  }
+
+  function tipCalculator(t){
+    const m = t.match(/([\d.,]+)\s*(euro|€)?.*?(\d+)\s*prozent/);
+    if(!m){ speak("Sag mir Betrag und Prozentsatz, zum Beispiel: Berechne Trinkgeld für 50 Euro mit 10 Prozent."); return; }
+    const amount = parseFloat(m[1].replace(',','.'));
+    const percent = parseInt(m[3]);
+    const tip = amount * percent / 100;
+    speak(`Bei ${amount.toFixed(2)} Euro und ${percent} Prozent Trinkgeld sind das ${tip.toFixed(2)} Euro, insgesamt also ${(amount+tip).toFixed(2)} Euro.`);
+  }
+
+  function ageOrDateDiff(t){
+    const m = t.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+    if(!m){ speak("Nenn mir ein Datum im Format Tag Punkt Monat Punkt Jahr."); return; }
+    const day = parseInt(m[1]), month = parseInt(m[2])-1, year = parseInt(m[3].length===2 ? '20'+m[3] : m[3]);
+    const target = new Date(year, month, day);
+    const now = new Date();
+    if(/wie alt|alter/.test(t)){
+      let age = now.getFullYear() - target.getFullYear();
+      const hadBirthday = (now.getMonth() > target.getMonth()) || (now.getMonth() === target.getMonth() && now.getDate() >= target.getDate());
+      if(!hadBirthday) age--;
+      speak(`Bei diesem Geburtsdatum wärst du aktuell ${age} Jahre alt.`);
+    } else {
+      const diffDays = Math.round((target - now) / 86400000);
+      if(diffDays === 0) speak("Das ist heute!");
+      else if(diffDays > 0) speak(`Bis zu diesem Datum sind es noch ${diffDays} Tage.`);
+      else speak(`Dieses Datum liegt bereits ${Math.abs(diffDays)} Tage zurück.`);
+    }
+  }
+
+  // --- Stoppuhr ---
+  const stopwatch = { running:false, startedAt:0, elapsedMs:0 };
+  function stopwatchStart(){
+    if(stopwatch.running){ speak("Die Stoppuhr läuft bereits."); return; }
+    stopwatch.running = true;
+    stopwatch.startedAt = Date.now() - stopwatch.elapsedMs;
+    speak("Stoppuhr gestartet.");
+  }
+  function stopwatchStop(){
+    if(!stopwatch.running){ speak("Die Stoppuhr läuft gerade nicht."); return; }
+    stopwatch.running = false;
+    stopwatch.elapsedMs = Date.now() - stopwatch.startedAt;
+    speak(`Stoppuhr gestoppt bei ${(stopwatch.elapsedMs/1000).toFixed(1)} Sekunden.`);
+  }
+  function stopwatchReset(){
+    stopwatch.running = false; stopwatch.elapsedMs = 0;
+    speak("Stoppuhr zurückgesetzt.");
+  }
+  function stopwatchStatus(){
+    const ms = stopwatch.running ? (Date.now() - stopwatch.startedAt) : stopwatch.elapsedMs;
+    speak(`Aktueller Stand: ${(ms/1000).toFixed(1)} Sekunden.`);
+  }
+
+  // --- Fokus-Modus (Pomodoro) ---
+  function startFocusMode(t){
+    const m = t.match(/(\d+)\s*minuten/);
+    const minutes = m ? parseInt(m[1]) : 25;
+    document.body.classList.add('focus-mode');
+    speak(`Fokus-Modus für ${minutes} Minuten gestartet${chef()}. Viel Erfolg — ich melde mich, wenn die Zeit um ist.`);
+    setTimeout(() => {
+      document.body.classList.remove('focus-mode');
+      speak(`Deine Fokus-Session über ${minutes} Minuten ist vorbei. Zeit für eine Pause!`);
+    }, minutes * 60000);
+  }
+
+  // --- Theme ---
+  function toggleTheme(force){
+    const light = force !== undefined ? force : !document.body.classList.contains('light-theme');
+    document.body.classList.toggle('light-theme', light);
+    speak(light ? "Ich wechsle in den hellen Modus." : "Ich wechsle zurück in den dunklen Modus.");
+  }
+
+  // --- Befehle: einfache, erweiterbare Befehlsregistrierung ---
+  const commands = [
+    {
+      test: t => /(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s/.test(t),
+      run: (t) => cityTime(t)
+    },
+    {
+      test: t => /wie spät|uhrzeit/.test(t),
+      run: () => {
+        const now = new Date();
+        speak("Es ist " + now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + " Uhr.");
+      }
+    },
+    {
+      test: t => /welcher tag|welches datum|heutiges datum/.test(t),
+      run: () => {
+        const now = new Date();
+        speak("Heute ist " + now.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + ".");
+      }
+    },
+    { test: t => /wetter/.test(t), run: () => fetchWeather() },
+    { test: t => /timer/.test(t), run: (t) => startTimer(t) },
+    {
+      test: t => /^merke dir\b/.test(t),
+      run: (t) => {
+        const text = t.replace(/^merke dir(,| dass|:)?\s*/,'').trim();
+        if(text){ state.reminders.push(text); speak(`Ich habe mir gemerkt: ${text}${chef()}.`); }
+        else speak("Was soll ich mir merken?");
+      }
+    },
+    {
+      test: t => /was habe ich mir gemerkt|meine erinnerungen|liste meiner erinnerungen/.test(t),
+      run: () => {
+        if(!state.reminders.length) speak("Ich habe mir bisher nichts gemerkt.");
+        else speak("Du hast mir gesagt: " + state.reminders.join(". Außerdem: ") + ".");
+      }
+    },
+    {
+      test: t => /erinnerungen löschen|lösche meine erinnerungen/.test(t),
+      run: () => { state.reminders = []; speak("Ich habe alle Erinnerungen gelöscht."); }
+    },
+    {
+      test: t => /^(wer ist|was weißt du über|erzähl mir etwas über)\s/.test(t),
+      run: (t) => fetchWikipedia(t.replace(/^(wer ist|was weißt du über|erzähl mir etwas über)\s/,'').trim())
+    },
+    {
+      test: t => /^(öffne|starte)\s+(die\s+app\s+|app\s+)?(whatsapp|spotify|instagram|telegram|tiktok|google maps|outlook)/.test(t),
+      run: (t) => openApp(t)
+    },
+    { test: t => /^(ruf|rufe)\b.*\b(an)$|^ruf(e)?\s+.*\d/.test(t), run: (t) => callNumber(t) },
+    { test: t => /^(schreibe|sende)\s+(eine\s+)?sms/.test(t), run: (t) => sendSMS(t) },
+    { test: t => /^(schreibe|sende)\s+(eine\s+)?(e-?mail)/.test(t), run: (t) => sendEmail(t) },
+    { test: t => /wo bin ich|mein (aktueller )?standort/.test(t), run: () => whereAmI() },
+    { test: t => /^navigiere\s/.test(t), run: (t) => navigateTo(t) },
+    { test: t => /^öffne\s/.test(t), run: (t) => openWebsite(t) },
+    { test: t => /^(suche( nach)?|google)\s/.test(t), run: (t) => webSearch(t) },
+    { test: t => /münze|kopf oder zahl/.test(t), run: () => speak(Math.random() < 0.5 ? "Kopf." : "Zahl.") },
+    {
+      test: t => /würfle|würfel/.test(t),
+      run: (t) => {
+        const m = t.match(/w(\d+)/);
+        const sides = m ? parseInt(m[1]) : 6;
+        speak(`Ich habe eine ${Math.floor(Math.random()*sides)+1} gewürfelt.`);
+      }
+    },
+    { test: t => /systemdiagnose|system.?check|diagnose/.test(t), run: () => systemDiagnose() },
+    { test: t => /motivier|motivation|pump mich auf/.test(t), run: () => speak(motivationQuotes[Math.floor(Math.random()*motivationQuotes.length)]) },
+    { test: t => /fakt|wusstest du/.test(t), run: () => speak(funFacts[Math.floor(Math.random()*funFacts.length)]) },
+    { test: t => /(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)\s*.*(in|nach|zu)\s*(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)/.test(t), run: (t) => convertUnits(t) },
+    { test: t => /zufallszahl|zufällige zahl/.test(t), run: (t) => randomNumberCmd(t) },
+    { test: t => /passwort/.test(t), run: (t) => generatePassword(t) },
+    { test: t => /trinkgeld/.test(t), run: (t) => tipCalculator(t) },
+    { test: t => /wie alt (wäre ich|bin ich)|(mein )?alter berechne|berechne (mein )?alter/.test(t), run: (t) => ageOrDateDiff(t) },
+    { test: t => /wie viele tage (sind es )?bis|tage bis zum/.test(t), run: (t) => ageOrDateDiff(t) },
+    { test: t => /stoppuhr\s*(starte|start)|starte\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStart() },
+    { test: t => /stoppuhr\s*(stoppe|stopp)|stoppe\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStop() },
+    { test: t => /stoppuhr\s*(zurücksetzen|reset)|setze\s*(die\s*)?stoppuhr\s*zurück/.test(t), run: () => stopwatchReset() },
+    { test: t => /stand der stoppuhr|wie lange läuft die stoppuhr/.test(t), run: () => stopwatchStatus() },
+    { test: t => /fokus.?modus|pomodoro/.test(t), run: (t) => startFocusMode(t) },
+    { test: t => /hell(en|er)?\s*modus/.test(t), run: () => toggleTheme(true) },
+    { test: t => /dunkl(en|er)?\s*modus/.test(t), run: () => toggleTheme(false) },
+    {
+      // Taschenrechner bewusst erst hier, NACH allen spezifischeren Zahlenbefehlen (Trinkgeld,
+      // Alter, Umrechnung usw.) platziert — sonst würde er z. B. "Berechne Trinkgeld für ..."
+      // fälschlich für sich beanspruchen, nur weil der Satz mit "Berechne" beginnt.
+      test: t => /^(rechne|berechne)\s/.test(t) || /\s(plus|minus|mal|geteilt durch)\s/.test(t),
+      run: (t) => {
+        try{
+          let expr = t.replace(/^(rechne|berechne)\s/, '')
+            .replace(/plus/g,'+').replace(/minus/g,'-')
+            .replace(/mal/g,'*').replace(/geteilt durch/g,'/');
+          expr = expr.replace(/[^0-9+\-*/.() ]/g, '');
+          const result = Function('"use strict";return (' + expr + ')')();
+          speak("Das Ergebnis ist " + result + ".");
+        }catch(e){
+          speak("Das konnte ich nicht berechnen.");
+        }
+      }
+    },
+    {
+      test: t => /^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s/.test(t),
+      run: (t) => answerQuery(t)
+    },
+    {
+      test: t => /formell(en|er)?\s*modus\s*(an|ein)/.test(t),
+      run: () => { state.formal = true; el.formalMode.checked = true; speak("Verstanden, Chef. Ich schalte in den formellen Modus."); }
+    },
+    {
+      test: t => /formell(en|er)?\s*modus\s*aus/.test(t),
+      run: () => { state.formal = false; el.formalMode.checked = false; speak("Alles klar, zurück zum lockeren Modus."); }
+    },
+    {
+      test: t => /^(ich heiße|mein name ist)\s+/.test(t),
+      run: (t) => {
+        const name = t.replace(/^(ich heiße|mein name ist)\s+/,'').trim();
+        state.userName = name.charAt(0).toUpperCase() + name.slice(1);
+        speak(`Freut mich, ${state.userName}! Ich werde mir das merken.`);
+      }
+    },
+    {
+      test: t => /wie heiße ich|wer bin ich|kennst du meinen namen/.test(t),
+      run: () => speak(state.userName ? `Du bist ${state.userName}.` : "Das weiß ich noch nicht — sag mir einfach: Ich heiße ...")
+    },
+    {
+      test: t => /^(hallo|hi|hey|servus|moin)\b/.test(t),
+      run: () => speak(state.userName ? `Hallo ${state.userName}${chef()}! Was kann ich für dich tun?` : `Hallo${chef()}! Was kann ich für dich tun?`)
+    },
+    {
+      test: t => /^(tschüss|bis später|auf wiedersehen|ciao|bye)\b/.test(t),
+      run: () => speak(state.userName ? `Bis später, ${state.userName}!` : "Bis später!")
+    },
+    {
+      test: t => /wie geht es dir|wie geht's dir|wie gehts dir/.test(t),
+      run: () => { state.awaitingMood = true; speak(`Mir geht es gut, danke der Nachfrage${chef()}! Und wie geht es dir?`); }
+    },
+    {
+      test: t => /^(erzähl( mir)? mehr|und weiter|und dann\??|weiter\??)$/.test(t),
+      run: () => {
+        if(!state.lastTopic){ speak("Wozu genau soll ich mehr erzählen?"); return; }
+        answerQuery('was ist ' + state.lastTopic);
+      }
+    },
+    {
+      test: t => /wer bist du|dein name/.test(t),
+      run: () => speak(`Ich bin ${state.assistantName}, dein persönlicher Assistent${chef()}.`)
+    },
+    { test: t => /danke/.test(t), run: () => speak(state.formal ? `Gern geschehen, Chef.` : "Gern geschehen.") },
+    { test: t => /witz/.test(t), run: () => speak("Warum können Geister so schlecht lügen? Weil man durch sie hindurchsieht.") },
+    {
+      test: () => true, // Intelligenter Fallback: erst eine echte Antwort versuchen, statt einfach aufzugeben
+      run: (t) => answerQuery('was ist ' + t, false)
+    }
+  ];
+
+  function handleCommand(text){
+    addLog('user', text);
+    const t = collapseDigits(text.toLowerCase().trim());
+
+    // Kontext: Wenn zuvor "Wie geht es dir?" gestellt wurde, auf eine Stimmungsantwort reagieren
+    if(state.awaitingMood){
+      state.awaitingMood = false;
+      if(/gut|super|bestens|prima|klasse|toll|großartig/.test(t)){
+        speak(`Das freut mich zu hören${chef()}! Womit kann ich dir helfen?`); return;
+      } else if(/schlecht|müde|nicht so gut|traurig|gestresst|erschöpft/.test(t)){
+        speak(`Das tut mir leid${chef()}. Ich hoffe, es wird bald besser. Soll ich dich mit etwas ablenken oder unterstützen?`); return;
+      }
+      // Keine klare Stimmungsantwort erkannt -> ganz normal weiter als Befehl auswerten
+    }
+
+    state.lastTopic = t;
+    for(const c of commands){
+      if(c.test(t)){ c.run(t); return; }
+    }
+  }
+
+  // --- Spracherkennung ---
+  function buildRecognition(){
+    if(!supported) return null;
+    const r = new SpeechRecognition();
+    r.lang = 'de-DE';
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onstart = () => { state.recognitionActive = true; };
+
+    r.onresult = (event) => {
+      let finalText = '';
+      let interim = '';
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const res = event.results[i];
+        if(res.isFinal) finalText += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+
+      const combined = (finalText || interim);
+
+      if(!state.listeningCommand){
+        el.transcript.textContent = combined.trim();
+        const { matched, rest } = matchWakeWord(combined);
+        if(matched){
+          // Weckwort erkannt -> wach werden
+          activateListening();
+          if(rest){
+            // Reste nach dem Weckwort schon in den Puffer aufnehmen, aber noch NICHT ausführen
+            feedCommandText(rest);
+          }
+        }
+      } else {
+        // Live-Anzeige: bereits gepufferter Text + aktuelle Zwischenergebnisse
+        el.transcript.textContent = (state.commandBuffer + ' ' + (finalText || interim)).trim();
+        if(finalText){
+          feedCommandText(finalText);
+        } else if(interim){
+          // Solange noch gesprochen wird, den Stille-Timer immer wieder verschieben
+          resetCommandTimer();
+        }
+      }
+    };
+
+    r.onerror = (e) => {
+      if(e.error === 'no-speech' || e.error === 'aborted') return;
+      console.warn('Speech recognition error:', e.error);
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+        // Mikrofonzugriff wurde verweigert/blockiert (z. B. weil ohne Nutzer-Tipp gestartet,
+        // oder die Berechtigung wurde nie erteilt) -> Zustand ehrlich zurücksetzen
+        disarmAssistant();
+        el.stateLabel.textContent = 'Mikrofonzugriff wurde nicht erlaubt. Bitte in den Website-Einstellungen deines Browsers das Mikrofon für diese Seite freigeben und erneut auf „Aktivieren“ tippen.';
+      } else if(e.error === 'audio-capture'){
+        disarmAssistant();
+        el.stateLabel.textContent = 'Es wurde kein Mikrofon gefunden.';
+      }
+    };
+
+    r.onend = () => {
+      state.recognitionActive = false;
+      if(state.armed && !state.speaking){
+        try{ r.start(); }catch(e){
+          // Sofortiger Neustart nicht möglich -> der Watchdog unten versucht es
+          // in kurzen Abständen weiter, bevor endgültig deaktiviert wird.
+        }
+      }
+    };
+
+    return r;
+  }
+
+  function startRecognition(){
+    if(!recognition) recognition = buildRecognition();
+    if(!recognition) return;
+    try{
+      recognition.start();
+    }catch(e){
+      if(e && e.name === 'InvalidStateError'){
+        // Läuft bereits (z. B. durch Watchdog oder Rückkehr aus dem Hintergrund) -> kein echter Fehler
+        state.recognitionActive = true;
+      } else {
+        // Echter Startfehler (z. B. keine Nutzer-Geste, Berechtigung fehlt) -> Zustand nicht verfälschen
+        disarmAssistant();
+        return;
+      }
+    }
+    setVisualState(state.listeningCommand ? 'listening' : 'armed');
+  }
+
+  function activateListening(){
+    state.listeningCommand = true;
+    state.commandBuffer = '';
+    el.transcript.textContent = '';
+    setVisualState('listening');
+    // kurzer Hinweiston-Ersatz: gesprochene Bestätigung optional
+  }
+
+  // Sammelt gesprochenen Text und wartet nach der letzten Eingabe kurz,
+  // bevor der Befehl tatsächlich ausgeführt wird — so wird niemand mehr
+  // mitten im Satz unterbrochen.
+  const COMMAND_SILENCE_MS = 1500;
+
+  function feedCommandText(chunk){
+    chunk = chunk.trim();
+    if(!chunk){ resetCommandTimer(); return; }
+    const buf = state.commandBuffer;
+    const bufLower = buf.toLowerCase();
+    const chunkLower = chunk.toLowerCase();
+    if(!buf){
+      state.commandBuffer = chunk;
+    } else if(chunkLower.startsWith(bufLower)){
+      // Neuer Chunk enthält den bisherigen Puffer bereits komplett (wächst kumulativ) -> ersetzen
+      state.commandBuffer = chunk;
+    } else if(bufLower.endsWith(chunkLower) || bufLower.includes(chunkLower)){
+      // Chunk steckt schon im Puffer -> Duplikat ignorieren
+    } else {
+      state.commandBuffer = (buf + ' ' + chunk).trim();
+    }
+    resetCommandTimer();
+  }
+
+  function resetCommandTimer(){
+    if(state.commandTimer) clearTimeout(state.commandTimer);
+    state.commandTimer = setTimeout(finalizeCommand, COMMAND_SILENCE_MS);
+  }
+
+  function finalizeCommand(){
+    const text = state.commandBuffer.trim();
+    state.commandBuffer = '';
+    state.commandTimer = null;
+    state.listeningCommand = false;
+    el.transcript.textContent = '';
+    if(text){
+      handleCommand(text);
+    } else if(state.armed && !state.speaking){
+      setVisualState('armed');
+    }
+  }
+
+  function armAssistant(){
+    if(!supported) return;
+    state.armed = true;
+    el.toggleBtn.textContent = 'Deaktivieren';
+    el.toggleBtn.classList.remove('primary');
+    startRecognition();
+    requestWakeLock();
+    startWatchdog();
+  }
+
+  function disarmAssistant(){
+    state.armed = false;
+    state.listeningCommand = false;
+    if(state.commandTimer){ clearTimeout(state.commandTimer); state.commandTimer = null; }
+    state.commandBuffer = '';
+    el.toggleBtn.textContent = 'Aktivieren';
+    el.toggleBtn.classList.add('primary');
+    el.transcript.textContent = '';
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    if(synth) synth.cancel();
+    releaseWakeLock();
+    stopWatchdog();
+    setVisualState('off');
+  }
+
+  // --- Bildschirm wach halten, solange aktiv gelauscht wird ---
+  // (verhindert, dass das Gerät den Bildschirm sperrt und dabei die Erkennung killt —
+  //  funktioniert NUR solange die Seite offen/im Vordergrund ist, nicht bei geschlossener App)
+  let wakeLock = null;
+  async function requestWakeLock(){
+    if(!('wakeLock' in navigator)) return;
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }catch(e){ /* z. B. Tab nicht sichtbar -> ignorieren, wird bei visibilitychange erneut versucht */ }
+  }
+  function releaseWakeLock(){
+    if(wakeLock){ wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && state.armed){
+      if(!wakeLock) requestWakeLock();
+      // Nach Rückkehr aus dem Hintergrund sicherstellen, dass die Erkennung wirklich noch läuft
+      if(!state.recognitionActive && !state.speaking){
+        try{ recognition && recognition.start(); }catch(e){}
+      }
+    }
+  });
+
+  // --- Watchdog: prüft regelmäßig, ob die Erkennung lautlos gestorben ist
+  // (bekanntes Verhalten mancher mobiler Browser im Hintergrund) und startet sie neu.
+  let watchdogTimer = null;
+  function startWatchdog(){
+    stopWatchdog();
+    watchdogTimer = setInterval(() => {
+      if(state.armed && !state.speaking && !state.recognitionActive){
+        try{ recognition && recognition.start(); }catch(e){}
+      }
+    }, 4000);
+  }
+  function stopWatchdog(){
+    if(watchdogTimer){ clearInterval(watchdogTimer); watchdogTimer = null; }
+  }
+
+  el.toggleBtn.addEventListener('click', () => {
+    if(state.armed) disarmAssistant();
+    else armAssistant();
+  });
+
+  el.settingsBtn.addEventListener('click', () => {
+    el.functionsPanel.style.display = 'none';
+    el.settingsPanel.style.display = el.settingsPanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  el.functionsBtn.addEventListener('click', () => {
+    el.settingsPanel.style.display = 'none';
+    el.functionsPanel.style.display = el.functionsPanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  el.clearLogBtn.addEventListener('click', () => {
+    state.log = [];
+    el.logList.innerHTML = '<div class="log-empty">Noch keine Unterhaltung.</div>';
+  });
+
+  el.searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = el.searchInput.value.trim();
+    if(!text) return;
+    el.searchInput.value = '';
+    // Laufenden Sprach-Timer/-Puffer stoppen, falls gerade parallel gesprochen wurde
+    if(state.commandTimer){ clearTimeout(state.commandTimer); state.commandTimer = null; }
+    state.commandBuffer = '';
+    state.listeningCommand = false;
+    handleCommand(text);
+  });
+
+  el.assistantName.addEventListener('input', () => {
+    state.assistantName = el.assistantName.value.trim() || 'ARIA';
+    updateWakeWordLabel();
+    if(!state.armed) setVisualState('off');
+  });
+
+  el.rateRange.addEventListener('input', () => { state.rate = parseFloat(el.rateRange.value); });
+  el.pitchRange.addEventListener('input', () => { state.pitch = parseFloat(el.pitchRange.value); });
+  el.continuousListen.addEventListener('change', () => { state.continuous = el.continuousListen.checked; });
+  el.formalMode.addEventListener('change', () => { state.formal = el.formalMode.checked; });
+  el.searchEngineSelect.addEventListener('change', () => { state.defaultSearchEngine = el.searchEngineSelect.value; });
+
+  function populateVoices(){
+    if(!synth) return;
+    const voices = synth.getVoices().filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
+    const list = voices.length ? voices : synth.getVoices();
+    el.voiceSelect.innerHTML = '';
+    list.forEach((v, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = v.name + ' (' + v.lang + ')';
+      el.voiceSelect.appendChild(opt);
+    });
+    if(list.length){
+      state.voice = list[0];
+    }
+    el.voiceSelect.addEventListener('change', () => {
+      state.voice = list[el.voiceSelect.value];
+    });
+  }
+
+  if(synth){
+    populateVoices();
+    synth.onvoiceschanged = populateVoices;
+  }
+
+  // --- PWA: als installierbare App einrichten ---
+  if('serviceWorker' in navigator){
+    let refreshing = false;
+    // Sobald eine neue Version des Service Workers übernimmt, die Seite automatisch
+    // einmal neu laden — verhindert, dass Nutzer dauerhaft an einer veralteten,
+    // gecachten Version hängen bleiben.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if(refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        reg.update().catch(() => {});
+      }).catch(() => {});
+    });
+  }
+
+  let deferredInstallPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    el.installBtn.style.display = 'inline-block';
+  });
+
+  el.installBtn.addEventListener('click', async () => {
+    if(!deferredInstallPrompt) return;
+    el.installBtn.style.display = 'none';
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+  });
+
+  window.addEventListener('appinstalled', () => {
+    el.installBtn.style.display = 'none';
+  });
+
+  // Wenn die App bereits installiert im eigenen Fenster läuft (statt im Browser-Tab),
+  // NICHT automatisch aktivieren — Mikrofonzugriff braucht immer eine echte Nutzer-Geste,
+  // sonst wird er vom Browser stillschweigend blockiert. Stattdessen kurz darauf hinweisen.
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if(isStandalone && supported){
+    el.stateLabel.innerHTML = 'Tippe auf „<b>Aktivieren</b>“, um sofort weiterzuhören.';
+  }
+
+  updateWakeWordLabel();
+  setVisualState('off');
+})();
+</script>
+
+</body>
+</html>
