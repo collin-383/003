@@ -165,6 +165,9 @@
   .controls{
     display:flex; gap:14px; flex-wrap:wrap; justify-content:center;
   }
+  .controls-secondary{
+    margin-top:-14px;
+  }
   button{
     font-family:inherit;
     cursor:pointer;
@@ -184,7 +187,15 @@
   }
   button.primary:hover{ border-color:var(--accent); }
   button.danger{ border-color:rgba(255,93,108,0.4); }
-  button.danger:hover{ border-color:var(--danger); }
+  button.danger:hover{ border-color:var(--danger); color:var(--danger); }
+  button.ghost{
+    background:transparent;
+    border-color:transparent;
+    padding:6px 12px;
+    font-size:11.5px;
+    color:var(--text-lo);
+  }
+  button.ghost:hover{ background:rgba(255,93,108,0.08); }
   button:disabled{ opacity:0.4; cursor:not-allowed; }
 
   /* PANEL */
@@ -204,8 +215,7 @@
   .field label{
     display:block; font-size:12px; color:var(--text-lo); margin-bottom:6px;
     text-transform:uppercase; letter-spacing:0.08em;
-  }
-  .field input[type=text], .field select{
+  }  .field input[type=text], .field select{
     width:100%;
     background:var(--bg-1);
     border:1px solid var(--line);
@@ -219,6 +229,16 @@
   .row{ display:flex; gap:14px; }
   .row > *{ flex:1; }
   .hint{ font-size:12px; color:var(--text-lo); margin-top:4px; line-height:1.5; }
+
+  .fn-group{ margin-bottom:18px; }
+  .fn-group h3{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.1em;
+    color:var(--accent); margin:0 0 8px 0; font-weight:600;
+  }
+  .fn-group ul{ margin:0; padding-left:18px; }
+  .fn-group li{
+    font-size:13px; color:var(--text-hi); line-height:1.7;
+  }
 
   .log{
     width:100%; max-width:640px;
@@ -260,6 +280,27 @@
   @media (prefers-reduced-motion: reduce){
     .ring, .orb-core{ animation:none !important; }
   }
+
+  body.light-theme{
+    --bg-0:#f4f8fb;
+    --bg-1:#ffffff;
+    --panel:#ffffff;
+    --line: rgba(20,60,90,0.15);
+    --text-hi:#0d1b26;
+    --text-lo:#5a7185;
+  }
+  body.light-theme{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(79,216,255,0.10), transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, rgba(232,180,90,0.08), transparent 60%),
+      var(--bg-0);
+  }
+
+  body.focus-mode .orb-core{
+    background: radial-gradient(circle at 35% 30%, #e7d4ff, #9b6bff 40%, #3a1a66 100%) !important;
+    box-shadow: 0 0 60px rgba(155,107,255,0.5), inset 0 0 30px rgba(255,255,255,0.3) !important;
+  }
+  body.focus-mode .status-pill{ border-color: rgba(155,107,255,0.4); }
 </style>
 </head>
 <body>
@@ -293,14 +334,86 @@
 
   <div class="controls">
     <button class="primary" id="toggleBtn">Aktivieren</button>
+    <button id="functionsBtn">Alle Funktionen</button>
     <button id="settingsBtn">Einstellungen</button>
-    <button class="danger" id="clearLogBtn">Verlauf löschen</button>
+  </div>
+  <div class="controls controls-secondary">
+    <button class="ghost danger" id="clearLogBtn">Verlauf löschen</button>
   </div>
 
   <form class="search-bar" id="searchForm" autocomplete="off">
     <input type="text" id="searchInput" placeholder="Frag Projekt 001 etwas oder tippe einen Befehl …" maxlength="200">
     <button type="submit" class="primary" id="searchSubmit">Senden</button>
   </form>
+
+  <div class="panel" id="functionsPanel" style="display:none;">
+    <h2>Alle Funktionen</h2>
+
+    <div class="fn-group">
+      <h3>Zeit &amp; Kalender</h3>
+      <ul>
+        <li>„Wie spät ist es“</li>
+        <li>„Welches Datum haben wir“</li>
+        <li>„Wie spät ist es in Tokio“ (auch London, New York, Paris, Sydney, Dubai u. a.)</li>
+        <li>„Wie alt wäre ich, geboren am 1.1.2000“</li>
+        <li>„Wie viele Tage sind es bis 24.12.2026“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Rechnen &amp; Umrechnen</h3>
+      <ul>
+        <li>„Rechne 5 plus 3“</li>
+        <li>„5 Kilometer in Meilen“ / „20 Grad Celsius in Fahrenheit“ / kg ↔ Pfund</li>
+        <li>„Berechne Trinkgeld für 50 Euro mit 10 Prozent“</li>
+        <li>„Zufallszahl zwischen 1 und 100“</li>
+        <li>„Generiere ein Passwort“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Wetter &amp; Wissen</h3>
+      <ul>
+        <li>„Wie ist das Wetter“ (per Standortfreigabe)</li>
+        <li>„Wer ist Albert Einstein“ (Wikipedia-Kurzauskunft)</li>
+        <li>„Erzähl mir einen Fakt“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Erinnerungen &amp; Produktivität</h3>
+      <ul>
+        <li>„Merke dir …“ / „Was habe ich mir gemerkt“ / „Erinnerungen löschen“</li>
+        <li>„Stelle einen Timer für 5 Minuten“</li>
+        <li>„Starte Stoppuhr“ / „Stoppe Stoppuhr“ / „Stand der Stoppuhr“</li>
+        <li>„Starte Fokus-Modus für 25 Minuten“ (Pomodoro)</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Web, Apps &amp; Kommunikation</h3>
+      <ul>
+        <li>„Öffne YouTube“ / „Suche nach …“</li>
+        <li>„Öffne WhatsApp / Spotify / Instagram / Telegram / TikTok“ (App oder Web-Fallback)</li>
+        <li>„Rufe 030 1234567 an“ / „Schreibe eine SMS an …“ / „Schreibe eine E-Mail an name@beispiel.de“</li>
+        <li>„Wo bin ich“ / „Navigiere nach Berlin“</li>
+      </ul>
+    </div>
+
+    <div class="fn-group">
+      <h3>Persönlichkeit &amp; System</h3>
+      <ul>
+        <li>„Wirf eine Münze“ / „Würfle“</li>
+        <li>„Witz“ / „Motivier mich“</li>
+        <li>„Systemdiagnose“</li>
+        <li>„Formellen Modus an/aus“ · „Hellen/Dunklen Modus“</li>
+      </ul>
+    </div>
+
+    <div class="hint" style="margin-bottom:18px;">
+      Tipp: Jeder dieser Befehle funktioniert auch getippt über die Suchleiste — ganz ohne Mikrofon.
+    </div>
+  </div>
 
   <div class="panel" id="settingsPanel" style="display:none;">
     <h2>Einstellungen</h2>
@@ -339,13 +452,8 @@
       Hinweis: Aus Sicherheits- und Datenschutzgründen kann kein Browser dauerhaft im Hintergrund lauschen, wenn Tab/App komplett geschlossen sind — nur solange diese Seite offen ist (auch minimiert/im Hintergrundtab). Für echtes 24/7-Hintergrundlauschen wäre eine installierte Geräte-App mit Systemberechtigung nötig.
     </div>
 
-    <div class="hint" style="margin-bottom:16px;">
-      Tipp: Alle Befehle funktionieren auch ganz ohne Mikrofon — einfach in die Suchleiste unter dem Orb eintippen und auf „Senden“ klicken oder Enter drücken.
-    </div>
-
-    <div class="hint" style="margin-bottom:18px; padding-top:10px; border-top:1px solid var(--line);">
-      <b style="color:var(--text-hi);">Was du sagen kannst:</b><br>
-      „Wie spät ist es“ · „Welches Datum haben wir“ · „Rechne 5 plus 3“ · „Wie ist das Wetter“ (fragt nach Standortfreigabe) · „Stelle einen Timer für 5 Minuten“ · „Merke dir …“ / „Was habe ich mir gemerkt“ · „Wer ist Albert Einstein“ (Wikipedia) · „Öffne YouTube“ · „Suche nach …“ · „Wirf eine Münze“ · „Würfle“ · „Systemdiagnose“ · „Motivier mich“ · „Formellen Modus an/aus“
+    <div class="hint" style="margin-bottom:18px;">
+      Tipp: Alle Befehle funktionieren auch ganz ohne Mikrofon — einfach in die Suchleiste unter dem Orb eintippen und auf „Senden“ klicken oder Enter drücken. Eine vollständige Übersicht findest du über den Button „Alle Funktionen“.
     </div>
   </div>
 
@@ -384,6 +492,8 @@
     toggleBtn: document.getElementById('toggleBtn'),
     settingsBtn: document.getElementById('settingsBtn'),
     settingsPanel: document.getElementById('settingsPanel'),
+    functionsBtn: document.getElementById('functionsBtn'),
+    functionsPanel: document.getElementById('functionsPanel'),
     clearLogBtn: document.getElementById('clearLogBtn'),
     statusDot: document.getElementById('statusDot'),
     statusText: document.getElementById('statusText'),
@@ -590,6 +700,233 @@
     "Die beste Zeit anzufangen war gestern. Die zweitbeste ist genau jetzt."
   ];
 
+  const funFacts = [
+    "Ein Tag auf der Venus dauert länger als ein Jahr auf der Venus.",
+    "Honig verdirbt praktisch nie — archäologische Funde aus Grabkammern waren nach tausenden Jahren noch genießbar.",
+    "Oktopusse haben drei Herzen und blaues Blut.",
+    "Der Eiffelturm wird im Sommer durch die Hitzeausdehnung bis zu 15 Zentimeter höher.",
+    "Bananen sind aus botanischer Sicht Beeren, Erdbeeren dagegen nicht.",
+    "Ein Blitz ist etwa fünfmal heißer als die Oberfläche der Sonne."
+  ];
+
+  const cityTimezones = {
+    berlin:'Europe/Berlin', london:'Europe/London', 'new york':'America/New_York',
+    newyork:'America/New_York', tokio:'Asia/Tokyo', tokyo:'Asia/Tokyo', paris:'Europe/Paris',
+    moskau:'Europe/Moscow', sydney:'Australia/Sydney', dubai:'Asia/Dubai',
+    'los angeles':'America/Los_Angeles', losangeles:'America/Los_Angeles',
+    peking:'Asia/Shanghai', beijing:'Asia/Shanghai', rom:'Europe/Rome', madrid:'Europe/Madrid'
+  };
+
+  function cityTime(t){
+    const target = t.replace(/^(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s+/,'').trim();
+    const key = Object.keys(cityTimezones).find(c => target.includes(c));
+    if(!key){ speak("Diese Stadt kenne ich noch nicht. Versuch es z. B. mit Tokio, New York oder London."); return; }
+    try{
+      const now = new Date();
+      const formatted = new Intl.DateTimeFormat('de-DE', { timeZone: cityTimezones[key], hour:'2-digit', minute:'2-digit' }).format(now);
+      speak(`In ${target.trim()} ist es gerade ${formatted} Uhr.`);
+    }catch(e){ speak("Das konnte ich leider nicht ermitteln."); }
+  }
+
+  function convertUnits(t){
+    let m;
+    if(m = t.match(/([\d.,]+)\s*(km|kilometer)\s*(in|nach|zu)\s*(meilen|miles)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Kilometer sind etwa ${(v*0.621371).toFixed(2)} Meilen.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(meilen|miles)\s*(in|nach|zu)\s*(km|kilometer)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Meilen sind etwa ${(v*1.60934).toFixed(2)} Kilometer.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(kg|kilogramm|kilo)\s*(in|nach|zu)\s*(pfund|lbs|pounds)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Kilogramm sind etwa ${(v*2.20462).toFixed(2)} Pfund.`); return;
+    }
+    if(m = t.match(/([\d.,]+)\s*(pfund|lbs|pounds)\s*(in|nach|zu)\s*(kg|kilogramm|kilo)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Pfund sind etwa ${(v*0.453592).toFixed(2)} Kilogramm.`); return;
+    }
+    if(m = t.match(/([\d.,-]+)\s*grad\s*celsius\s*(in|nach|zu)\s*fahrenheit/) || t.match(/([\d.,-]+)\s*°?c\s*(in|nach|zu)\s*(°?f|fahrenheit)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Grad Celsius sind ${((v*9/5)+32).toFixed(1)} Grad Fahrenheit.`); return;
+    }
+    if(m = t.match(/([\d.,-]+)\s*grad\s*fahrenheit\s*(in|nach|zu)\s*celsius/) || t.match(/([\d.,-]+)\s*°?f\s*(in|nach|zu)\s*(°?c|celsius)/)){
+      const v = parseFloat(m[1].replace(',','.'));
+      speak(`${m[1]} Grad Fahrenheit sind ${((v-32)*5/9).toFixed(1)} Grad Celsius.`); return;
+    }
+    speak("Diese Umrechnung kenne ich noch nicht. Ich kann Kilometer/Meilen, Kilogramm/Pfund und Celsius/Fahrenheit umrechnen.");
+  }
+
+  function randomNumberCmd(t){
+    const m = t.match(/zwischen\s+(\d+)\s+und\s+(\d+)/);
+    const min = m ? parseInt(m[1]) : 1;
+    const max = m ? parseInt(m[2]) : 100;
+    const lo = Math.min(min,max), hi = Math.max(min,max);
+    speak(`Meine Zahl ist ${Math.floor(Math.random()*(hi-lo+1))+lo}.`);
+  }
+
+  function generatePassword(t){
+    const m = t.match(/(\d+)\s*(zeichen|stellen)/);
+    const len = m ? Math.min(Math.max(parseInt(m[1]),4),64) : 16;
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*';
+    let pw = '';
+    for(let i=0;i<len;i++) pw += chars[Math.floor(Math.random()*chars.length)];
+    speak(`Dein Passwort mit ${len} Zeichen: ${pw}`);
+  }
+
+  // --- 1) Bestimmte Apps direkt öffnen (Deep-Links, fällt auf Web-Version zurück) ---
+  const appSchemes = {
+    whatsapp: { scheme:'whatsapp://send', web:'https://web.whatsapp.com' },
+    spotify: { scheme:'spotify:', web:'https://open.spotify.com' },
+    instagram: { scheme:'instagram://app', web:'https://instagram.com' },
+    telegram: { scheme:'tg://', web:'https://web.telegram.org' },
+    tiktok: { scheme:'tiktok://', web:'https://tiktok.com' },
+    'google maps': { scheme:'geo:0,0', web:'https://maps.google.com' },
+    outlook: { scheme:'ms-outlook://', web:'https://outlook.com' }
+  };
+
+  function openApp(t){
+    const target = t.replace(/^(öffne|starte)\s+(die\s+app\s+|app\s+)?/,'').trim();
+    const key = Object.keys(appSchemes).find(k => target.includes(k));
+    if(!key){ openWebsite('öffne ' + target); return; }
+    const { scheme, web } = appSchemes[key];
+    speak(`Ich versuche ${key} zu öffnen${chef()}. Falls die App nicht installiert ist, öffne ich die Webseite.`);
+    const clickedAt = Date.now();
+    try{ window.location.href = scheme; }catch(e){}
+    setTimeout(() => {
+      if(!document.hidden && Date.now() - clickedAt < 2500){
+        window.open(web, '_blank');
+      }
+    }, 1200);
+  }
+
+  // --- 2) Direkt anrufen, SMS oder E-Mail vorbereiten ---
+  function callNumber(t){
+    const m = t.match(/(\+?\d[\d\s\/\-]{5,}\d)/);
+    if(!m){ speak("Welche Nummer soll ich anrufen?"); return; }
+    const num = m[1].replace(/[\s\/\-]/g,'');
+    speak(`Ich rufe ${m[1]} an${chef()}.`);
+    window.location.href = 'tel:' + num;
+  }
+
+  function sendSMS(t){
+    const m = t.match(/(\+?\d[\d\s\/\-]{5,}\d)/);
+    if(!m){ speak("An welche Nummer soll ich eine SMS schreiben?"); return; }
+    const num = m[1].replace(/[\s\/\-]/g,'');
+    speak(`Ich öffne eine SMS an ${m[1]}${chef()}.`);
+    window.location.href = 'sms:' + num;
+  }
+
+  function sendEmail(t){
+    const m = t.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if(!m){ speak("An welche E-Mail-Adresse soll ich schreiben?"); return; }
+    speak(`Ich öffne eine E-Mail an ${m[1]}${chef()}.`);
+    window.location.href = 'mailto:' + m[1];
+  }
+
+  // --- 3) Standort erfragen & Navigation starten ---
+  function whereAmI(){
+    if(!navigator.geolocation){ speak("Standortzugriff wird von diesem Browser nicht unterstützt."); return; }
+    speak("Einen Moment, ich ermittle deinen Standort.");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try{
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=de`);
+        const data = await res.json();
+        const place = data.city || data.locality || data.principalSubdivision || 'einem mir unbekannten Ort';
+        speak(`Du befindest dich aktuell in der Nähe von ${place}${data.countryName ? ', ' + data.countryName : ''}.`);
+      }catch(e){ speak("Deinen genauen Standort konnte ich gerade nicht bestimmen."); }
+    }, () => speak("Ohne Standortfreigabe kann ich deinen Standort nicht bestimmen."));
+  }
+
+  function navigateTo(t){
+    const dest = t.replace(/^navigiere\s+(mich\s+)?(nach|zu)\s+/,'').trim();
+    if(!dest){ speak("Wohin soll ich dich navigieren?"); return; }
+    const openRoute = (origin) => {
+      const url = origin
+        ? `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(dest)}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+      window.open(url, '_blank');
+      speak(`Ich öffne die Route nach ${dest}${chef()}.`);
+    };
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(
+        pos => openRoute({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => openRoute(null)
+      );
+    } else openRoute(null);
+  }
+
+  function tipCalculator(t){
+    const m = t.match(/([\d.,]+)\s*(euro|€)?.*?(\d+)\s*prozent/);
+    if(!m){ speak("Sag mir Betrag und Prozentsatz, zum Beispiel: Berechne Trinkgeld für 50 Euro mit 10 Prozent."); return; }
+    const amount = parseFloat(m[1].replace(',','.'));
+    const percent = parseInt(m[3]);
+    const tip = amount * percent / 100;
+    speak(`Bei ${amount.toFixed(2)} Euro und ${percent} Prozent Trinkgeld sind das ${tip.toFixed(2)} Euro, insgesamt also ${(amount+tip).toFixed(2)} Euro.`);
+  }
+
+  function ageOrDateDiff(t){
+    const m = t.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/);
+    if(!m){ speak("Nenn mir ein Datum im Format Tag Punkt Monat Punkt Jahr."); return; }
+    const day = parseInt(m[1]), month = parseInt(m[2])-1, year = parseInt(m[3].length===2 ? '20'+m[3] : m[3]);
+    const target = new Date(year, month, day);
+    const now = new Date();
+    if(/wie alt|alter/.test(t)){
+      let age = now.getFullYear() - target.getFullYear();
+      const hadBirthday = (now.getMonth() > target.getMonth()) || (now.getMonth() === target.getMonth() && now.getDate() >= target.getDate());
+      if(!hadBirthday) age--;
+      speak(`Bei diesem Geburtsdatum wärst du aktuell ${age} Jahre alt.`);
+    } else {
+      const diffDays = Math.round((target - now) / 86400000);
+      if(diffDays === 0) speak("Das ist heute!");
+      else if(diffDays > 0) speak(`Bis zu diesem Datum sind es noch ${diffDays} Tage.`);
+      else speak(`Dieses Datum liegt bereits ${Math.abs(diffDays)} Tage zurück.`);
+    }
+  }
+
+  // --- Stoppuhr ---
+  const stopwatch = { running:false, startedAt:0, elapsedMs:0 };
+  function stopwatchStart(){
+    if(stopwatch.running){ speak("Die Stoppuhr läuft bereits."); return; }
+    stopwatch.running = true;
+    stopwatch.startedAt = Date.now() - stopwatch.elapsedMs;
+    speak("Stoppuhr gestartet.");
+  }
+  function stopwatchStop(){
+    if(!stopwatch.running){ speak("Die Stoppuhr läuft gerade nicht."); return; }
+    stopwatch.running = false;
+    stopwatch.elapsedMs = Date.now() - stopwatch.startedAt;
+    speak(`Stoppuhr gestoppt bei ${(stopwatch.elapsedMs/1000).toFixed(1)} Sekunden.`);
+  }
+  function stopwatchReset(){
+    stopwatch.running = false; stopwatch.elapsedMs = 0;
+    speak("Stoppuhr zurückgesetzt.");
+  }
+  function stopwatchStatus(){
+    const ms = stopwatch.running ? (Date.now() - stopwatch.startedAt) : stopwatch.elapsedMs;
+    speak(`Aktueller Stand: ${(ms/1000).toFixed(1)} Sekunden.`);
+  }
+
+  // --- Fokus-Modus (Pomodoro) ---
+  function startFocusMode(t){
+    const m = t.match(/(\d+)\s*minuten/);
+    const minutes = m ? parseInt(m[1]) : 25;
+    document.body.classList.add('focus-mode');
+    speak(`Fokus-Modus für ${minutes} Minuten gestartet${chef()}. Viel Erfolg — ich melde mich, wenn die Zeit um ist.`);
+    setTimeout(() => {
+      document.body.classList.remove('focus-mode');
+      speak(`Deine Fokus-Session über ${minutes} Minuten ist vorbei. Zeit für eine Pause!`);
+    }, minutes * 60000);
+  }
+
+  // --- Theme ---
+  function toggleTheme(force){
+    const light = force !== undefined ? force : !document.body.classList.contains('light-theme');
+    document.body.classList.toggle('light-theme', light);
+    speak(light ? "Ich wechsle in den hellen Modus." : "Ich wechsle zurück in den dunklen Modus.");
+  }
+
   // --- Befehle: einfache, erweiterbare Befehlsregistrierung ---
   const commands = [
     {
@@ -646,6 +983,15 @@
       test: t => /^(wer ist|was weißt du über|erzähl mir etwas über)\s/.test(t),
       run: (t) => fetchWikipedia(t.replace(/^(wer ist|was weißt du über|erzähl mir etwas über)\s/,'').trim())
     },
+    {
+      test: t => /^(öffne|starte)\s+(die\s+app\s+|app\s+)?(whatsapp|spotify|instagram|telegram|tiktok|google maps|outlook)/.test(t),
+      run: (t) => openApp(t)
+    },
+    { test: t => /^(ruf|rufe)\b.*\b(an)$|^ruf(e)?\s+.*\d/.test(t), run: (t) => callNumber(t) },
+    { test: t => /^(schreibe|sende)\s+(eine\s+)?sms/.test(t), run: (t) => sendSMS(t) },
+    { test: t => /^(schreibe|sende)\s+(eine\s+)?(e-?mail)/.test(t), run: (t) => sendEmail(t) },
+    { test: t => /wo bin ich|mein (aktueller )?standort/.test(t), run: () => whereAmI() },
+    { test: t => /^navigiere\s/.test(t), run: (t) => navigateTo(t) },
     { test: t => /^öffne\s/.test(t), run: (t) => openWebsite(t) },
     { test: t => /^(suche( nach)?|google)\s/.test(t), run: (t) => webSearch(t) },
     { test: t => /münze|kopf oder zahl/.test(t), run: () => speak(Math.random() < 0.5 ? "Kopf." : "Zahl.") },
@@ -659,6 +1005,21 @@
     },
     { test: t => /systemdiagnose|system.?check|diagnose/.test(t), run: () => systemDiagnose() },
     { test: t => /motivier|motivation|pump mich auf/.test(t), run: () => speak(motivationQuotes[Math.floor(Math.random()*motivationQuotes.length)]) },
+    { test: t => /fakt|wusstest du/.test(t), run: () => speak(funFacts[Math.floor(Math.random()*funFacts.length)]) },
+    { test: t => /(wie spät ist es in|wie viel uhr ist es in|uhrzeit in)\s/.test(t), run: (t) => cityTime(t) },
+    { test: t => /(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)\s*.*(in|nach|zu)\s*(km|kilometer|meilen|miles|kg|kilogramm|kilo|pfund|lbs|pounds|celsius|fahrenheit|°c|°f)/.test(t), run: (t) => convertUnits(t) },
+    { test: t => /zufallszahl|zufällige zahl/.test(t), run: (t) => randomNumberCmd(t) },
+    { test: t => /passwort/.test(t), run: (t) => generatePassword(t) },
+    { test: t => /trinkgeld/.test(t), run: (t) => tipCalculator(t) },
+    { test: t => /wie alt (wäre ich|bin ich)|(mein )?alter berechne/.test(t), run: (t) => ageOrDateDiff(t) },
+    { test: t => /wie viele tage (sind es )?bis|tage bis zum/.test(t), run: (t) => ageOrDateDiff(t) },
+    { test: t => /stoppuhr\s*(starte|start)|starte\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStart() },
+    { test: t => /stoppuhr\s*(stoppe|stopp)|stoppe\s*(die\s*)?stoppuhr/.test(t), run: () => stopwatchStop() },
+    { test: t => /stoppuhr\s*(zurücksetzen|reset)|setze\s*(die\s*)?stoppuhr\s*zurück/.test(t), run: () => stopwatchReset() },
+    { test: t => /stand der stoppuhr|wie lange läuft die stoppuhr/.test(t), run: () => stopwatchStatus() },
+    { test: t => /fokus.?modus|pomodoro/.test(t), run: (t) => startFocusMode(t) },
+    { test: t => /hell(en|er)?\s*modus/.test(t), run: () => toggleTheme(true) },
+    { test: t => /dunkl(en|er)?\s*modus/.test(t), run: () => toggleTheme(false) },
     {
       test: t => /formell(en|er)?\s*modus\s*(an|ein)/.test(t),
       run: () => { state.formal = true; el.formalMode.checked = true; speak("Verstanden, Chef. Ich schalte in den formellen Modus."); }
@@ -813,7 +1174,13 @@
   });
 
   el.settingsBtn.addEventListener('click', () => {
+    el.functionsPanel.style.display = 'none';
     el.settingsPanel.style.display = el.settingsPanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  el.functionsBtn.addEventListener('click', () => {
+    el.settingsPanel.style.display = 'none';
+    el.functionsPanel.style.display = el.functionsPanel.style.display === 'none' ? 'block' : 'none';
   });
 
   el.clearLogBtn.addEventListener('click', () => {
