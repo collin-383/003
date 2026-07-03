@@ -604,7 +604,9 @@
   // Wandelt gesprochene deutsche Zahlwörter (z.B. "null null eins") in Ziffern um,
   // damit Namen wie "001" auch als gesprochene Zahl erkannt werden.
   function collapseDigits(text){
-    const map = {null:'0', eins:'1', ein:'1', eine:'1', zwei:'2', drei:'3', vier:'4', fünf:'5', sechs:'6', sieben:'7', acht:'8', neun:'9'};
+    // Bewusst OHNE "ein"/"eine" — das sind meist normale Artikel ("ein Computer",
+    // "eine Webseite"), keine Zahlwörter. Nur eindeutige Zahlwörter werden erkannt.
+    const map = {null:'0', eins:'1', zwei:'2', drei:'3', vier:'4', fünf:'5', sechs:'6', sieben:'7', acht:'8', neun:'9'};
     const words = text.split(/\s+/);
     const out = [];
     let buf = '';
@@ -625,7 +627,7 @@
     }
     const normalized = collapseDigits(rawLower);
     for(const p of phrases){
-      if(normalized.includes(p)) return { matched:true, rest:'' };
+      if(normalized.includes(p)) return { matched:true, rest: normalized.split(p).pop().trim() };
     }
     return { matched:false, rest:'' };
   }
@@ -636,6 +638,11 @@
     addLog('assistant', text);
     if(!synth) return;
     synth.cancel();
+    // Mikrofon sofort pausieren, BEVOR die Ausgabe beginnt — sonst kann die
+    // Erkennung die eigene Stimme der KI aufschnappen und sich selbst triggern.
+    state.speaking = true;
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    setVisualState('speaking');
     const utter = new SpeechSynthesisUtterance(text);
     if(state.voice) utter.voice = state.voice;
     utter.rate = state.rate;
@@ -643,6 +650,12 @@
     utter.lang = (state.voice && state.voice.lang) || 'de-DE';
     utter.onstart = () => { state.speaking = true; setVisualState('speaking'); };
     utter.onend = () => {
+      state.speaking = false;
+      if(state.armed) startRecognition();
+      else setVisualState('off');
+    };
+    utter.onerror = () => {
+      // TTS-Fehler (z. B. Stimme nicht verfügbar) darf das Mikrofon nicht dauerhaft blockieren
       state.speaking = false;
       if(state.armed) startRecognition();
       else setVisualState('off');
@@ -1275,9 +1288,14 @@
     try{
       recognition.start();
     }catch(e){
-      // Start fehlgeschlagen (z. B. keine Nutzer-Geste, Berechtigung fehlt) -> Zustand nicht verfälschen
-      disarmAssistant();
-      return;
+      if(e && e.name === 'InvalidStateError'){
+        // Läuft bereits (z. B. durch Watchdog oder Rückkehr aus dem Hintergrund) -> kein echter Fehler
+        state.recognitionActive = true;
+      } else {
+        // Echter Startfehler (z. B. keine Nutzer-Geste, Berechtigung fehlt) -> Zustand nicht verfälschen
+        disarmAssistant();
+        return;
+      }
     }
     setVisualState(state.listeningCommand ? 'listening' : 'armed');
   }
@@ -1437,6 +1455,7 @@
   el.rateRange.addEventListener('input', () => { state.rate = parseFloat(el.rateRange.value); });
   el.pitchRange.addEventListener('input', () => { state.pitch = parseFloat(el.pitchRange.value); });
   el.continuousListen.addEventListener('change', () => { state.continuous = el.continuousListen.checked; });
+  el.formalMode.addEventListener('change', () => { state.formal = el.formalMode.checked; });
   el.searchEngineSelect.addEventListener('change', () => { state.defaultSearchEngine = el.searchEngineSelect.value; });
 
   function populateVoices(){
