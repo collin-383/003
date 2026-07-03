@@ -393,7 +393,9 @@
     <div class="fn-group">
       <h3>Web, Apps &amp; Kommunikation</h3>
       <ul>
-        <li>„Öffne YouTube“ / „Suche nach …“</li>
+        <li>„Öffne YouTube“ / „Suche nach …“ (nutzt deine Standard-Suchmaschine)</li>
+        <li>„Suche auf Bing/DuckDuckGo/Ecosia/Startpage/Brave/Yahoo/Wikipedia/YouTube nach …“</li>
+        <li>„Was ist …“ / „Beantworte mir …“ / „Erkläre mir …“ (direkte Antwort, sonst automatische Suche)</li>
         <li>„Öffne WhatsApp / Spotify / Instagram / Telegram / TikTok“ (App oder Web-Fallback)</li>
         <li>„Rufe 030 1234567 an“ / „Schreibe eine SMS an …“ / „Schreibe eine E-Mail an name@beispiel.de“</li>
         <li>„Wo bin ich“ / „Navigiere nach Berlin“</li>
@@ -441,6 +443,22 @@
     </div>
 
     <div class="field">
+      <label for="searchEngineSelect">Standard-Suchmaschine</label>
+      <select id="searchEngineSelect">
+        <option value="google">Google</option>
+        <option value="bing">Bing</option>
+        <option value="duckduckgo">DuckDuckGo</option>
+        <option value="ecosia">Ecosia</option>
+        <option value="startpage">Startpage</option>
+        <option value="brave">Brave Search</option>
+        <option value="yahoo">Yahoo</option>
+        <option value="wikipedia">Wikipedia</option>
+        <option value="youtube">YouTube</option>
+      </select>
+      <div class="hint">Wird bei „Suche nach …“ genutzt. Du kannst jederzeit auch eine andere Suchmaschine direkt nennen: „Suche auf Bing nach …“.</div>
+    </div>
+
+    <div class="field">
       <label><input type="checkbox" id="continuousListen" checked style="width:auto; margin-right:8px;"> Dauerhaft auf Weckwort lauschen (solange diese Seite geöffnet ist)</label>
     </div>
 
@@ -481,7 +499,8 @@
     log: [],
     reminders: [],
     commandBuffer: '',
-    commandTimer: null
+    commandTimer: null,
+    defaultSearchEngine: 'google'
   };
 
   const el = {
@@ -503,6 +522,7 @@
     rateRange: document.getElementById('rateRange'),
     pitchRange: document.getElementById('pitchRange'),
     continuousListen: document.getElementById('continuousListen'),
+    searchEngineSelect: document.getElementById('searchEngineSelect'),
     formalMode: document.getElementById('formalMode'),
     logList: document.getElementById('logList'),
     unsupportedNotice: document.getElementById('unsupportedNotice'),
@@ -670,11 +690,58 @@
     speak(`Ich öffne ${target}${chef()}.`);
   }
 
+  const searchEngines = {
+    google:     { name:'Google',       url: q => 'https://www.google.com/search?q=' + encodeURIComponent(q) },
+    bing:       { name:'Bing',         url: q => 'https://www.bing.com/search?q=' + encodeURIComponent(q) },
+    duckduckgo: { name:'DuckDuckGo',   url: q => 'https://duckduckgo.com/?q=' + encodeURIComponent(q) },
+    ecosia:     { name:'Ecosia',       url: q => 'https://www.ecosia.org/search?q=' + encodeURIComponent(q) },
+    startpage:  { name:'Startpage',    url: q => 'https://www.startpage.com/sp/search?query=' + encodeURIComponent(q) },
+    yahoo:      { name:'Yahoo',        url: q => 'https://search.yahoo.com/search?p=' + encodeURIComponent(q) },
+    brave:      { name:'Brave Search', url: q => 'https://search.brave.com/search?q=' + encodeURIComponent(q) },
+    wikipedia:  { name:'Wikipedia',    url: q => 'https://de.wikipedia.org/w/index.php?search=' + encodeURIComponent(q) },
+    youtube:    { name:'YouTube',      url: q => 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q) }
+  };
+
+  function runSearch(engineKey, q){
+    const eng = searchEngines[engineKey] || searchEngines[state.defaultSearchEngine] || searchEngines.google;
+    window.open(eng.url(q), '_blank');
+    speak(`Ich habe für dich auf ${eng.name} nach „${q}“ gesucht${chef()}.`);
+  }
+
   function webSearch(t){
-    const q = t.replace(/^(suche( nach)?|google)\s+/,'').trim();
+    // Explizite Suchmaschine erkannt: "suche auf bing nach ..." / "suche bei duckduckgo nach ..."
+    const explicit = t.match(/^suche\s+(?:auf|bei|mit)\s+(google|bing|duckduckgo|ecosia|startpage|yahoo|brave|wikipedia|youtube)\s+nach\s+(.+)/i);
+    if(explicit){
+      runSearch(explicit[1].toLowerCase(), explicit[2].trim());
+      return;
+    }
+    const q = t.replace(/^(suche(\s+nach)?|google)\s+/i, '').trim();
     if(!q){ speak("Wonach soll ich suchen?"); return; }
-    window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
-    speak(`Ich habe eine Suche nach ${q} geöffnet.`);
+    runSearch(state.defaultSearchEngine, q);
+  }
+
+  // Versucht zuerst eine direkte Antwort zu finden (über eine Instant-Answer-API ohne
+  // Schlüssel), und öffnet nur bei Bedarf eine vollständige Suche als Rückfallebene.
+  function answerQuery(t){
+    const q = t.replace(/^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s+/i, '').trim();
+    if(!q){ speak("Was möchtest du wissen?"); return; }
+    speak("Einen Moment, ich schaue nach.");
+    fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(q)}&format=json&no_html=1&skip_disambig=1`)
+      .then(r => r.json())
+      .then(data => {
+        const answer = data.AbstractText || data.Answer ||
+          (data.RelatedTopics && data.RelatedTopics[0] && data.RelatedTopics[0].Text);
+        if(answer){
+          speak(answer.length > 380 ? answer.slice(0,380) + '…' : answer);
+        } else {
+          speak(`Dazu habe ich keine direkte Antwort gefunden. Ich öffne stattdessen eine Suche zu „${q}“.`);
+          runSearch(state.defaultSearchEngine, q);
+        }
+      })
+      .catch(() => {
+        speak(`Das konnte ich gerade nicht direkt beantworten. Ich öffne stattdessen eine Suche zu „${q}“.`);
+        runSearch(state.defaultSearchEngine, q);
+      });
   }
 
   function systemDiagnose(){
@@ -984,6 +1051,10 @@
       run: (t) => fetchWikipedia(t.replace(/^(wer ist|was weißt du über|erzähl mir etwas über)\s/,'').trim())
     },
     {
+      test: t => /^(beantworte mir|beantworte|was ist|was sind|erkläre mir|erkläre)\s/.test(t),
+      run: (t) => answerQuery(t)
+    },
+    {
       test: t => /^(öffne|starte)\s+(die\s+app\s+|app\s+)?(whatsapp|spotify|instagram|telegram|tiktok|google maps|outlook)/.test(t),
       run: (t) => openApp(t)
     },
@@ -1209,6 +1280,7 @@
   el.rateRange.addEventListener('input', () => { state.rate = parseFloat(el.rateRange.value); });
   el.pitchRange.addEventListener('input', () => { state.pitch = parseFloat(el.pitchRange.value); });
   el.continuousListen.addEventListener('change', () => { state.continuous = el.continuousListen.checked; });
+  el.searchEngineSelect.addEventListener('change', () => { state.defaultSearchEngine = el.searchEngineSelect.value; });
 
   function populateVoices(){
     if(!synth) return;
