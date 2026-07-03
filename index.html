@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROJEKT 001 — Dein Sprachassistent</title>
+<style>
+  :root{
+    --bg-0:#050a12;
+    --bg-1:#0a1420;
+    --panel:#0d1826;
+    --line: rgba(120,200,255,0.15);
+    --accent: #4fd8ff;
+    --accent-dim: rgba(79,216,255,0.35);
+    --gold: #e8b45a;
+    --text-hi:#eaf6ff;
+    --text-lo:#7f9bb3;
+    --danger:#ff5d6c;
+    --ok:#5cf2a8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 50% -10%, rgba(79,216,255,0.08), transparent 60%),
+      radial-gradient(900px 600px at 90% 110%, rgba(232,180,90,0.06), transparent 60%),
+      var(--bg-0);
+    color:var(--text-hi);
+    font-family: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    overflow-x:hidden;
+  }
+  .mono{ font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace; letter-spacing:0.04em; }
+
+  header{
+    width:100%;
+    max-width:1000px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:22px 24px 8px 24px;
+  }
+  .brand{
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .brand .name{
+    font-size:22px; font-weight:700; letter-spacing:0.12em;
+    color:var(--text-hi);
+  }
+  .brand .tag{
+    font-size:11px; color:var(--text-lo); text-transform:uppercase; letter-spacing:0.18em;
+  }
+  .status-pill{
+    font-size:11px; padding:6px 12px; border-radius:20px;
+    border:1px solid var(--line); color:var(--text-lo);
+    display:flex; align-items:center; gap:8px;
+    text-transform:uppercase; letter-spacing:0.1em;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--text-lo); transition:all .3s; }
+  .dot.on{ background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .dot.off{ background:var(--danger); box-shadow:0 0 8px var(--danger); }
+
+  main{
+    width:100%;
+    max-width:1000px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px 24px 60px 24px;
+    gap:28px;
+  }
+
+  /* ORB */
+  .orb-wrap{
+    position:relative;
+    width:280px; height:280px;
+    margin-top:10px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ring{
+    position:absolute; border-radius:50%;
+    border:1px solid var(--line);
+  }
+  .ring.r1{ width:280px; height:280px; }
+  .ring.r2{ width:225px; height:225px; border-style:dashed; opacity:0.6; }
+  .ring.r3{ width:170px; height:170px; }
+  .orb-core{
+    position:relative;
+    width:120px; height:120px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #bdf1ff, var(--accent) 40%, #0c4f66 100%);
+    box-shadow: 0 0 40px var(--accent-dim), inset 0 0 30px rgba(255,255,255,0.25);
+    transition: box-shadow .3s, transform .3s;
+  }
+  .orb-wrap.idle .orb-core{ animation: breathe 4s ease-in-out infinite; }
+  .orb-wrap.armed .ring{ animation: spin 12s linear infinite; }
+  .orb-wrap.armed .ring.r2{ animation: spin 8s linear infinite reverse; }
+  .orb-wrap.listening .orb-core{
+    animation: pulseFast 1.1s ease-in-out infinite;
+    box-shadow: 0 0 70px var(--accent), inset 0 0 30px rgba(255,255,255,0.4);
+  }
+  .orb-wrap.speaking .orb-core{
+    animation: pulseFast .5s ease-in-out infinite;
+    background: radial-gradient(circle at 35% 30%, #fff2d1, var(--gold) 40%, #6b4a12 100%);
+    box-shadow: 0 0 70px rgba(232,180,90,0.6), inset 0 0 30px rgba(255,255,255,0.4);
+  }
+  .orb-wrap.off .orb-core{
+    background: radial-gradient(circle at 35% 30%, #4a5866, #232f3a 40%, #10161c 100%);
+    box-shadow:none;
+  }
+  .orb-wrap.off .ring{ opacity:0.25; }
+
+  @keyframes breathe{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.05);} }
+  @keyframes pulseFast{ 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.12);} }
+  @keyframes spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+
+  .state-label{
+    text-align:center;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:0.2em;
+    color:var(--text-lo);
+    min-height:18px;
+  }
+  .state-label b{ color:var(--accent); font-weight:600; }
+
+  .transcript{
+    width:100%;
+    max-width:640px;
+    min-height:26px;
+    text-align:center;
+    color:var(--text-hi);
+    font-size:16px;
+    padding:0 12px;
+  }
+
+  .search-bar{
+    width:100%;
+    max-width:640px;
+    display:flex;
+    gap:10px;
+  }
+  .search-bar input[type=text]{
+    flex:1;
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--text-hi);
+    border-radius:10px;
+    padding:12px 16px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .search-bar input[type=text]:focus{
+    outline:none;
+    border-color:var(--accent-dim);
+  }
+  .search-bar button{
+    white-space:nowrap;
+  }
+
+  .controls{
+    display:flex; gap:14px; flex-wrap:wrap; justify-content:center;
+  }
+  button{
+    font-family:inherit;
+    cursor:pointer;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--text-hi);
+    padding:11px 20px;
+    font-size:13px;
+    letter-spacing:0.05em;
+    transition:all .15s;
+  }
+  button:hover{ border-color:var(--accent-dim); background:#102133; }
+  button.primary{
+    background:linear-gradient(180deg, rgba(79,216,255,0.18), rgba(79,216,255,0.06));
+    border-color:var(--accent-dim);
+  }
+  button.primary:hover{ border-color:var(--accent); }
+  button.danger{ border-color:rgba(255,93,108,0.4); }
+  button.danger:hover{ border-color:var(--danger); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  /* PANEL */
+  .panel{
+    width:100%;
+    max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:22px 22px 8px 22px;
+  }
+  .panel h2{
+    font-size:12px; text-transform:uppercase; letter-spacing:0.18em;
+    color:var(--text-lo); margin:0 0 16px 0; font-weight:600;
+  }
+  .field{ margin-bottom:16px; }
+  .field label{
+    display:block; font-size:12px; color:var(--text-lo); margin-bottom:6px;
+    text-transform:uppercase; letter-spacing:0.08em;
+  }
+  .field input[type=text], .field select{
+    width:100%;
+    background:var(--bg-1);
+    border:1px solid var(--line);
+    color:var(--text-hi);
+    border-radius:8px;
+    padding:10px 12px;
+    font-size:14px;
+    font-family:inherit;
+  }
+  .field input[type=range]{ width:100%; accent-color:var(--accent); }
+  .row{ display:flex; gap:14px; }
+  .row > *{ flex:1; }
+  .hint{ font-size:12px; color:var(--text-lo); margin-top:4px; line-height:1.5; }
+
+  .log{
+    width:100%; max-width:640px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  .log h2{ font-size:12px; text-transform:uppercase; letter-spacing:0.18em; color:var(--text-lo); margin:0 0 10px 0; }
+  .log-entry{ font-size:13px; margin-bottom:10px; line-height:1.5; }
+  .log-entry .who{ color:var(--accent); font-weight:600; margin-right:6px; }
+  .log-entry.assistant .who{ color:var(--gold); }
+  .log-empty{ color:var(--text-lo); font-size:13px; }
+
+  .notice{
+    width:100%; max-width:640px;
+    border:1px solid rgba(255,93,108,0.35);
+    background:rgba(255,93,108,0.06);
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:12.5px;
+    color:#ffc7cd;
+    line-height:1.6;
+    display:none;
+  }
+  .notice.show{ display:block; }
+
+  footer{
+    width:100%;
+    text-align:center;
+    padding:20px;
+    font-size:11px;
+    color:var(--text-lo);
+    letter-spacing:0.08em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ring, .orb-core{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="name mono" id="brandName">PROJEKT 001</span>
+    <span class="tag">Sprachassistent</span>
+  </div>
+  <div class="status-pill">
+    <span class="dot off" id="statusDot"></span>
+    <span id="statusText">Inaktiv</span>
+  </div>
+</header>
+
+<main>
+
+  <div class="notice" id="unsupportedNotice">
+    Dieser Browser unterstützt keine Spracherkennung (Web Speech API). Chrome oder Edge am Desktop funktionieren am zuverlässigsten. Du kannst trotzdem den Mikrofon-Button unten für Text-Eingabe nutzen, sobald verfügbar.
+  </div>
+
+  <div class="orb-wrap off" id="orbWrap">
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div class="ring r3"></div>
+    <div class="orb-core" id="orbCore"></div>
+  </div>
+
+  <div class="state-label" id="stateLabel">Sag „<b id="wakeWordLabel">Hey Projekt 001</b>“, um mich zu wecken — oder starte manuell.</div>
+  <div class="transcript" id="transcript"></div>
+
+  <div class="controls">
+    <button class="primary" id="toggleBtn">Aktivieren</button>
+    <button id="settingsBtn">Einstellungen</button>
+    <button class="danger" id="clearLogBtn">Verlauf löschen</button>
+  </div>
+
+  <form class="search-bar" id="searchForm" autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Frag Projekt 001 etwas oder tippe einen Befehl …" maxlength="200">
+    <button type="submit" class="primary" id="searchSubmit">Senden</button>
+  </form>
+
+  <div class="panel" id="settingsPanel" style="display:none;">
+    <h2>Einstellungen</h2>
+
+    <div class="field">
+      <label for="assistantName">Name der KI</label>
+      <input type="text" id="assistantName" value="Projekt 001" maxlength="24">
+      <div class="hint">Das Weckwort ist automatisch „Hey [Name]“, „Hallo [Name]“ oder „Ok [Name]“. Bei Namen mit Ziffern (wie „001“) versteht die App sowohl die gesprochenen Ziffern als auch ausgeschriebene Zahlwörter — die Erkennung ist bei einem reinen Wortnamen aber zuverlässiger.</div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="voiceSelect">Stimme</label>
+        <select id="voiceSelect"></select>
+      </div>
+      <div class="field">
+        <label for="rateRange">Sprechtempo</label>
+        <input type="range" id="rateRange" min="0.6" max="1.6" step="0.05" value="1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="pitchRange">Tonhöhe</label>
+      <input type="range" id="pitchRange" min="0" max="2" step="0.05" value="1">
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="continuousListen" checked style="width:auto; margin-right:8px;"> Dauerhaft auf Weckwort lauschen (solange diese Seite geöffnet ist)</label>
+    </div>
+
+    <div class="field">
+      <label><input type="checkbox" id="formalMode" style="width:auto; margin-right:8px;"> Formeller Modus (Jarvis-Stil, spricht dich mit „Chef“ an)</label>
+    </div>
+
+    <div class="hint" style="margin-bottom:16px;">
+      Hinweis: Aus Sicherheits- und Datenschutzgründen kann kein Browser dauerhaft im Hintergrund lauschen, wenn Tab/App komplett geschlossen sind — nur solange diese Seite offen ist (auch minimiert/im Hintergrundtab). Für echtes 24/7-Hintergrundlauschen wäre eine installierte Geräte-App mit Systemberechtigung nötig.
+    </div>
+
+    <div class="hint" style="margin-bottom:16px;">
+      Tipp: Alle Befehle funktionieren auch ganz ohne Mikrofon — einfach in die Suchleiste unter dem Orb eintippen und auf „Senden“ klicken oder Enter drücken.
+    </div>
+
+    <div class="hint" style="margin-bottom:18px; padding-top:10px; border-top:1px solid var(--line);">
+      <b style="color:var(--text-hi);">Was du sagen kannst:</b><br>
+      „Wie spät ist es“ · „Welches Datum haben wir“ · „Rechne 5 plus 3“ · „Wie ist das Wetter“ (fragt nach Standortfreigabe) · „Stelle einen Timer für 5 Minuten“ · „Merke dir …“ / „Was habe ich mir gemerkt“ · „Wer ist Albert Einstein“ (Wikipedia) · „Öffne YouTube“ · „Suche nach …“ · „Wirf eine Münze“ · „Würfle“ · „Systemdiagnose“ · „Motivier mich“ · „Formellen Modus an/aus“
+    </div>
+  </div>
+
+  <div class="log" id="logPanel">
+    <h2>Verlauf</h2>
+    <div id="logList"><div class="log-empty">Noch keine Unterhaltung.</div></div>
+  </div>
+
+</main>
+
+<footer>PROJEKT 001 läuft vollständig lokal in diesem Browser · Keine Daten werden extern gespeichert</footer>
+
+<script>
+(function(){
+  const state = {
+    assistantName: "Projekt 001",
+    armed: false,          // lauscht auf Weckwort
+    listeningCommand: false, // lauscht gerade auf Befehl nach Aktivierung
+    speaking: false,
+    voice: null,
+    rate: 1,
+    pitch: 1,
+    continuous: true,
+    formal: false,
+    log: [],
+    reminders: [],
+    commandBuffer: '',
+    commandTimer: null
+  };
+
+  const el = {
+    orbWrap: document.getElementById('orbWrap'),
+    stateLabel: document.getElementById('stateLabel'),
+    wakeWordLabel: document.getElementById('wakeWordLabel'),
+    transcript: document.getElementById('transcript'),
+    toggleBtn: document.getElementById('toggleBtn'),
+    settingsBtn: document.getElementById('settingsBtn'),
+    settingsPanel: document.getElementById('settingsPanel'),
+    clearLogBtn: document.getElementById('clearLogBtn'),
+    statusDot: document.getElementById('statusDot'),
+    statusText: document.getElementById('statusText'),
+    brandName: document.getElementById('brandName'),
+    assistantName: document.getElementById('assistantName'),
+    voiceSelect: document.getElementById('voiceSelect'),
+    rateRange: document.getElementById('rateRange'),
+    pitchRange: document.getElementById('pitchRange'),
+    continuousListen: document.getElementById('continuousListen'),
+    formalMode: document.getElementById('formalMode'),
+    logList: document.getElementById('logList'),
+    unsupportedNotice: document.getElementById('unsupportedNotice'),
+    searchForm: document.getElementById('searchForm'),
+    searchInput: document.getElementById('searchInput')
+  };
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const synth = window.speechSynthesis;
+  let recognition = null;
+  let supported = !!SpeechRecognition;
+
+  if(!supported){
+    el.unsupportedNotice.classList.add('show');
+    el.toggleBtn.disabled = true;
+  }
+
+  function updateWakeWordLabel(){
+    el.wakeWordLabel.textContent = "Hey " + state.assistantName;
+    state.wakeWord = ("hey " + state.assistantName).toLowerCase();
+    el.brandName.textContent = state.assistantName.toUpperCase();
+  }
+
+  function setVisualState(mode){
+    el.orbWrap.className = 'orb-wrap ' + mode;
+    const map = {
+      off: "Inaktiv — klicke „Aktivieren“",
+      idle: "Sag „<b>Hey " + state.assistantName + "</b>“, um mich zu wecken.",
+      armed: "Sag „<b>Hey " + state.assistantName + "</b>“, um mich zu wecken.",
+      listening: state.assistantName + " hört zu …",
+      speaking: state.assistantName + " antwortet …"
+    };
+    el.stateLabel.innerHTML = map[mode] || "";
+    el.statusDot.className = 'dot ' + (mode === 'off' ? 'off' : 'on');
+    el.statusText.textContent = mode === 'off' ? 'Inaktiv' :
+      mode === 'listening' ? 'Hört Befehl' :
+      mode === 'speaking' ? 'Spricht' : 'Wartet auf Weckwort';
+  }
+
+  function addLog(who, text){
+    state.log.push({who, text});
+    if(state.log.length === 1) el.logList.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'log-entry ' + (who === 'assistant' ? 'assistant' : 'user');
+    div.innerHTML = '<span class="who">' + (who === 'assistant' ? state.assistantName : 'Du') + ':</span>' +
+      escapeHtml(text);
+    el.logList.appendChild(div);
+    el.logList.scrollTop = el.logList.scrollHeight;
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  // Wandelt gesprochene deutsche Zahlwörter (z.B. "null null eins") in Ziffern um,
+  // damit Namen wie "001" auch als gesprochene Zahl erkannt werden.
+  function collapseDigits(text){
+    const map = {null:'0', eins:'1', ein:'1', eine:'1', zwei:'2', drei:'3', vier:'4', fünf:'5', sechs:'6', sieben:'7', acht:'8', neun:'9'};
+    const words = text.split(/\s+/);
+    const out = [];
+    let buf = '';
+    for(const w of words){
+      if(map[w] !== undefined){ buf += map[w]; }
+      else { if(buf){ out.push(buf); buf=''; } if(w) out.push(w); }
+    }
+    if(buf) out.push(buf);
+    return out.join(' ');
+  }
+
+  function matchWakeWord(combinedRaw){
+    const rawLower = combinedRaw.toLowerCase();
+    const n = state.assistantName.toLowerCase().trim();
+    const phrases = ["hey " + n, "hallo " + n, "ok " + n];
+    for(const p of phrases){
+      if(rawLower.includes(p)) return { matched:true, rest: rawLower.split(p).pop().trim() };
+    }
+    const normalized = collapseDigits(rawLower);
+    for(const p of phrases){
+      if(normalized.includes(p)) return { matched:true, rest:'' };
+    }
+    return { matched:false, rest:'' };
+  }
+
+  function chef(){ return state.formal ? ', Chef' : ''; }
+
+  function speak(text){
+    addLog('assistant', text);
+    if(!synth) return;
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    if(state.voice) utter.voice = state.voice;
+    utter.rate = state.rate;
+    utter.pitch = state.pitch;
+    utter.lang = (state.voice && state.voice.lang) || 'de-DE';
+    utter.onstart = () => { state.speaking = true; setVisualState('speaking'); };
+    utter.onend = () => {
+      state.speaking = false;
+      if(state.armed) startRecognition();
+      else setVisualState('off');
+    };
+    synth.speak(utter);
+  }
+
+  // --- Zusatzfunktionen ---
+  function weatherCodeToText(code){
+    if(code === 0) return "klarem Himmel";
+    if([1,2,3].includes(code)) return "teils bewölktem Himmel";
+    if([45,48].includes(code)) return "Nebel";
+    if([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return "Regen";
+    if([71,73,75,77,85,86].includes(code)) return "Schnee";
+    if([95,96,99].includes(code)) return "Gewitter";
+    return "wechselhaftem Wetter";
+  }
+
+  function fetchWeather(){
+    if(!navigator.geolocation){ speak("Für Wetterdaten benötige ich Standortzugriff, den dieser Browser nicht anbietet."); return; }
+    speak("Einen Moment, ich hole die aktuellen Wetterdaten.");
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try{
+        const { latitude, longitude } = pos.coords;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+        const data = await res.json();
+        const cw = data.current_weather;
+        speak(`Aktuell sind es ${Math.round(cw.temperature)} Grad bei ${weatherCodeToText(cw.weathercode)}. Der Wind weht mit ${Math.round(cw.windspeed)} Kilometern pro Stunde${chef()}.`);
+      }catch(e){
+        speak("Die Wetterdaten konnte ich gerade nicht abrufen.");
+      }
+    }, () => speak("Ohne deine Standortfreigabe kann ich das Wetter nicht abrufen."));
+  }
+
+  function startTimer(t){
+    const m = t.match(/(\d+)\s*(minuten|minute)/);
+    const minutes = m ? parseInt(m[1]) : null;
+    if(!minutes){ speak("Für wie viele Minuten soll der Timer laufen?"); return; }
+    speak(`Timer über ${minutes} Minute${minutes===1?'':'n'} gestartet${chef()}.`);
+    setTimeout(() => speak(`Dein Timer über ${minutes} Minute${minutes===1?'':'n'} ist abgelaufen.`), minutes * 60000);
+  }
+
+  function fetchWikipedia(query){
+    if(!query){ speak("Wonach soll ich suchen?"); return; }
+    speak(`Ich schaue nach, was ich über ${query} finde.`);
+    fetch(`https://de.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const extract = data && data.extract ? data.extract.split('. ').slice(0,2).join('. ') : '';
+        speak(extract ? extract + '.' : `Dazu habe ich leider nichts gefunden.`);
+      })
+      .catch(() => speak("Die Suche hat gerade nicht funktioniert."));
+  }
+
+  const siteMap = {
+    youtube:'https://youtube.com', google:'https://google.com', wikipedia:'https://de.wikipedia.org',
+    amazon:'https://amazon.de', netflix:'https://netflix.com', gmail:'https://mail.google.com',
+    maps:'https://maps.google.com', spotify:'https://open.spotify.com', github:'https://github.com'
+  };
+
+  function openWebsite(t){
+    const target = t.replace(/^öffne\s+/,'').trim();
+    if(!target){ speak("Welche Seite soll ich öffnen?"); return; }
+    const key = Object.keys(siteMap).find(k => target.includes(k));
+    const url = key ? siteMap[key] : ('https://' + target.replace(/\s+/g,'') + (target.includes('.') ? '' : '.de'));
+    window.open(url, '_blank');
+    speak(`Ich öffne ${target}${chef()}.`);
+  }
+
+  function webSearch(t){
+    const q = t.replace(/^(suche( nach)?|google)\s+/,'').trim();
+    if(!q){ speak("Wonach soll ich suchen?"); return; }
+    window.open('https://www.google.com/search?q=' + encodeURIComponent(q), '_blank');
+    speak(`Ich habe eine Suche nach ${q} geöffnet.`);
+  }
+
+  function systemDiagnose(){
+    const parts = [];
+    parts.push(`Bildschirmauflösung ${window.screen.width} mal ${window.screen.height} Pixel`);
+    parts.push(navigator.onLine ? "Verbindung aktiv" : "keine Internetverbindung");
+    if(navigator.connection && navigator.connection.effectiveType){
+      parts.push(`Netzwerktyp ${navigator.connection.effectiveType}`);
+    }
+    if(navigator.getBattery){
+      navigator.getBattery().then(b => {
+        speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}, Akkustand ${Math.round(b.level*100)} Prozent.`);
+      }).catch(() => speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}.`));
+    } else {
+      speak(`Systemdiagnose abgeschlossen${chef()}. ${parts.join(', ')}.`);
+    }
+  }
+
+  const motivationQuotes = [
+    "Jeder große Erfolg beginnt mit dem Mut, den ersten Schritt zu machen.",
+    "Du bist bereits weiter, als du gestern warst.",
+    "Fokus schlägt Tempo. Mach einfach weiter, Schritt für Schritt.",
+    "Die beste Zeit anzufangen war gestern. Die zweitbeste ist genau jetzt."
+  ];
+
+  // --- Befehle: einfache, erweiterbare Befehlsregistrierung ---
+  const commands = [
+    {
+      test: t => /wie spät|uhrzeit/.test(t),
+      run: () => {
+        const now = new Date();
+        speak("Es ist " + now.toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) + " Uhr.");
+      }
+    },
+    {
+      test: t => /welcher tag|welches datum|heutiges datum/.test(t),
+      run: () => {
+        const now = new Date();
+        speak("Heute ist " + now.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long', year:'numeric'}) + ".");
+      }
+    },
+    {
+      test: t => /^(rechne|berechne)\s/.test(t) || /\s(plus|minus|mal|geteilt durch)\s/.test(t),
+      run: (t) => {
+        try{
+          let expr = t.replace(/^(rechne|berechne)\s/, '')
+            .replace(/plus/g,'+').replace(/minus/g,'-')
+            .replace(/mal/g,'*').replace(/geteilt durch/g,'/');
+          expr = expr.replace(/[^0-9+\-*/.() ]/g, '');
+          const result = Function('"use strict";return (' + expr + ')')();
+          speak("Das Ergebnis ist " + result + ".");
+        }catch(e){
+          speak("Das konnte ich nicht berechnen.");
+        }
+      }
+    },
+    { test: t => /wetter/.test(t), run: () => fetchWeather() },
+    { test: t => /timer/.test(t), run: (t) => startTimer(t) },
+    {
+      test: t => /^merke dir\b/.test(t),
+      run: (t) => {
+        const text = t.replace(/^merke dir(,| dass|:)?\s*/,'').trim();
+        if(text){ state.reminders.push(text); speak(`Ich habe mir gemerkt: ${text}${chef()}.`); }
+        else speak("Was soll ich mir merken?");
+      }
+    },
+    {
+      test: t => /was habe ich mir gemerkt|meine erinnerungen|liste meiner erinnerungen/.test(t),
+      run: () => {
+        if(!state.reminders.length) speak("Ich habe mir bisher nichts gemerkt.");
+        else speak("Du hast mir gesagt: " + state.reminders.join(". Außerdem: ") + ".");
+      }
+    },
+    {
+      test: t => /erinnerungen löschen|lösche meine erinnerungen/.test(t),
+      run: () => { state.reminders = []; speak("Ich habe alle Erinnerungen gelöscht."); }
+    },
+    {
+      test: t => /^(wer ist|was weißt du über|erzähl mir etwas über)\s/.test(t),
+      run: (t) => fetchWikipedia(t.replace(/^(wer ist|was weißt du über|erzähl mir etwas über)\s/,'').trim())
+    },
+    { test: t => /^öffne\s/.test(t), run: (t) => openWebsite(t) },
+    { test: t => /^(suche( nach)?|google)\s/.test(t), run: (t) => webSearch(t) },
+    { test: t => /münze|kopf oder zahl/.test(t), run: () => speak(Math.random() < 0.5 ? "Kopf." : "Zahl.") },
+    {
+      test: t => /würfle|würfel/.test(t),
+      run: (t) => {
+        const m = t.match(/w(\d+)/);
+        const sides = m ? parseInt(m[1]) : 6;
+        speak(`Ich habe eine ${Math.floor(Math.random()*sides)+1} gewürfelt.`);
+      }
+    },
+    { test: t => /systemdiagnose|system.?check|diagnose/.test(t), run: () => systemDiagnose() },
+    { test: t => /motivier|motivation|pump mich auf/.test(t), run: () => speak(motivationQuotes[Math.floor(Math.random()*motivationQuotes.length)]) },
+    {
+      test: t => /formell(en|er)?\s*modus\s*(an|ein)/.test(t),
+      run: () => { state.formal = true; el.formalMode.checked = true; speak("Verstanden, Chef. Ich schalte in den formellen Modus."); }
+    },
+    {
+      test: t => /formell(en|er)?\s*modus\s*aus/.test(t),
+      run: () => { state.formal = false; el.formalMode.checked = false; speak("Alles klar, zurück zum lockeren Modus."); }
+    },
+    {
+      test: t => /wer bist du|dein name/.test(t),
+      run: () => speak(`Ich bin ${state.assistantName}, dein persönlicher Assistent${chef()}.`)
+    },
+    { test: t => /danke/.test(t), run: () => speak(state.formal ? `Gern geschehen, Chef.` : "Gern geschehen.") },
+    { test: t => /witz/.test(t), run: () => speak("Warum können Geister so schlecht lügen? Weil man durch sie hindurchsieht.") },
+    {
+      test: () => true, // Fallback
+      run: (t) => speak("Das habe ich noch nicht gelernt. Du kannst diesen Befehl im Code unter „commands“ selbst ergänzen.")
+    }
+  ];
+
+  function handleCommand(text){
+    addLog('user', text);
+    const t = collapseDigits(text.toLowerCase().trim());
+    for(const c of commands){
+      if(c.test(t)){ c.run(t); return; }
+    }
+  }
+
+  // --- Spracherkennung ---
+  function buildRecognition(){
+    if(!supported) return null;
+    const r = new SpeechRecognition();
+    r.lang = 'de-DE';
+    r.continuous = true;
+    r.interimResults = true;
+
+    r.onresult = (event) => {
+      let finalText = '';
+      let interim = '';
+      for(let i = event.resultIndex; i < event.results.length; i++){
+        const res = event.results[i];
+        if(res.isFinal) finalText += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+
+      const combined = (finalText || interim);
+
+      if(!state.listeningCommand){
+        el.transcript.textContent = combined.trim();
+        const { matched, rest } = matchWakeWord(combined);
+        if(matched){
+          // Weckwort erkannt -> wach werden
+          activateListening();
+          if(rest){
+            // Reste nach dem Weckwort schon in den Puffer aufnehmen, aber noch NICHT ausführen
+            feedCommandText(rest);
+          }
+        }
+      } else {
+        // Live-Anzeige: bereits gepufferter Text + aktuelle Zwischenergebnisse
+        el.transcript.textContent = (state.commandBuffer + ' ' + (finalText || interim)).trim();
+        if(finalText){
+          feedCommandText(finalText);
+        } else if(interim){
+          // Solange noch gesprochen wird, den Stille-Timer immer wieder verschieben
+          resetCommandTimer();
+        }
+      }
+    };
+
+    r.onerror = (e) => {
+      if(e.error === 'no-speech' || e.error === 'aborted') return;
+      console.warn('Speech recognition error:', e.error);
+    };
+
+    r.onend = () => {
+      if(state.armed && !state.speaking){
+        try{ r.start(); }catch(e){}
+      }
+    };
+
+    return r;
+  }
+
+  function startRecognition(){
+    if(!recognition) recognition = buildRecognition();
+    if(!recognition) return;
+    try{ recognition.start(); }catch(e){}
+    setVisualState(state.listeningCommand ? 'listening' : 'armed');
+  }
+
+  function activateListening(){
+    state.listeningCommand = true;
+    state.commandBuffer = '';
+    el.transcript.textContent = '';
+    setVisualState('listening');
+    // kurzer Hinweiston-Ersatz: gesprochene Bestätigung optional
+  }
+
+  // Sammelt gesprochenen Text und wartet nach der letzten Eingabe kurz,
+  // bevor der Befehl tatsächlich ausgeführt wird — so wird niemand mehr
+  // mitten im Satz unterbrochen.
+  const COMMAND_SILENCE_MS = 1500;
+
+  function feedCommandText(chunk){
+    state.commandBuffer = (state.commandBuffer + ' ' + chunk).trim();
+    resetCommandTimer();
+  }
+
+  function resetCommandTimer(){
+    if(state.commandTimer) clearTimeout(state.commandTimer);
+    state.commandTimer = setTimeout(finalizeCommand, COMMAND_SILENCE_MS);
+  }
+
+  function finalizeCommand(){
+    const text = state.commandBuffer.trim();
+    state.commandBuffer = '';
+    state.commandTimer = null;
+    state.listeningCommand = false;
+    el.transcript.textContent = '';
+    if(text){
+      handleCommand(text);
+    } else if(state.armed && !state.speaking){
+      setVisualState('armed');
+    }
+  }
+
+  function armAssistant(){
+    if(!supported) return;
+    state.armed = true;
+    el.toggleBtn.textContent = 'Deaktivieren';
+    el.toggleBtn.classList.remove('primary');
+    startRecognition();
+  }
+
+  function disarmAssistant(){
+    state.armed = false;
+    state.listeningCommand = false;
+    if(state.commandTimer){ clearTimeout(state.commandTimer); state.commandTimer = null; }
+    state.commandBuffer = '';
+    el.toggleBtn.textContent = 'Aktivieren';
+    el.toggleBtn.classList.add('primary');
+    el.transcript.textContent = '';
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    if(synth) synth.cancel();
+    setVisualState('off');
+  }
+
+  el.toggleBtn.addEventListener('click', () => {
+    if(state.armed) disarmAssistant();
+    else armAssistant();
+  });
+
+  el.settingsBtn.addEventListener('click', () => {
+    el.settingsPanel.style.display = el.settingsPanel.style.display === 'none' ? 'block' : 'none';
+  });
+
+  el.clearLogBtn.addEventListener('click', () => {
+    state.log = [];
+    el.logList.innerHTML = '<div class="log-empty">Noch keine Unterhaltung.</div>';
+  });
+
+  el.searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = el.searchInput.value.trim();
+    if(!text) return;
+    el.searchInput.value = '';
+    // Laufenden Sprach-Timer/-Puffer stoppen, falls gerade parallel gesprochen wurde
+    if(state.commandTimer){ clearTimeout(state.commandTimer); state.commandTimer = null; }
+    state.commandBuffer = '';
+    state.listeningCommand = false;
+    handleCommand(text);
+  });
+
+  el.assistantName.addEventListener('input', () => {
+    state.assistantName = el.assistantName.value.trim() || 'ARIA';
+    updateWakeWordLabel();
+    if(!state.armed) setVisualState('off');
+  });
+
+  el.rateRange.addEventListener('input', () => { state.rate = parseFloat(el.rateRange.value); });
+  el.pitchRange.addEventListener('input', () => { state.pitch = parseFloat(el.pitchRange.value); });
+  el.continuousListen.addEventListener('change', () => { state.continuous = el.continuousListen.checked; });
+
+  function populateVoices(){
+    if(!synth) return;
+    const voices = synth.getVoices().filter(v => v.lang.startsWith('de') || v.lang.startsWith('en'));
+    const list = voices.length ? voices : synth.getVoices();
+    el.voiceSelect.innerHTML = '';
+    list.forEach((v, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = v.name + ' (' + v.lang + ')';
+      el.voiceSelect.appendChild(opt);
+    });
+    if(list.length){
+      state.voice = list[0];
+    }
+    el.voiceSelect.addEventListener('change', () => {
+      state.voice = list[el.voiceSelect.value];
+    });
+  }
+
+  if(synth){
+    populateVoices();
+    synth.onvoiceschanged = populateVoices;
+  }
+
+  updateWakeWordLabel();
+  setVisualState('off');
+})();
+</script>
+
+</body>
+</html>
